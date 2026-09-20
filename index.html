@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline'; style-src 'self' https://fonts.googleapis.com 'unsafe-inline'; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://generativelanguage.googleapis.com https://openrouter.ai; worker-src 'self' https://cdnjs.cloudflare.com;"
+    />
+    <title>Journey A.I - AI Academic &amp; Task Agent</title>
+    <meta
+      name="description"
+      content="An intelligent academic planning and study assistance system: syllabus analysis, task management, document retrieval and study tutoring."
+    />
+    <meta name="color-scheme" content="light dark" />
+    <!-- Open Graph / Social -->
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:title"
+      content="Journey A.I - AI Academic &amp; Task Agent"
+    />
+    <meta
+      property="og:description"
+      content="AI-powered academic planning: syllabus analysis, task management, document retrieval and study tutoring. Runs in your browser with zero server dependencies."
+    />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Journey A.I" />
+    <meta
+      name="twitter:description"
+      content="AI-powered academic planning and study assistance system."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 30 Q10 26 16 30 Q22 34 28 30 Q34 26 38 30' stroke='%231d2733' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3Cpath d='M12 28 L14 22 L28 22 L30 28 Z' fill='%231d2733'/%3E%3Cline x1='20' y1='22' x2='20' y2='8' stroke='%231d2733' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M21 9 L21 20 L30 20 Z' fill='%231d2733' opacity='0.7'/%3E%3C/svg%3E"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Source Serif for brand headings, Plus Jakarta Sans for UI, Geist Mono for code.
+     Offline the system serif/sans/mono stack takes over and the layout holds. -->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=Geist+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <a href="#viewRoot" class="sr-only">Skip to main content</a>
+    <div id="app" aria-label="Journey A.I - Academic Planning Assistant">
+      <aside class="sidebar">
+        <button
+          class="nav-toggle"
+          id="navToggle"
+          aria-label="Toggle navigation"
+          aria-expanded="false"
+        >
+          <svg
+            viewBox="0 0 18 18"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.35"
+            stroke-linecap="round"
+          >
+            <line x1="2" y1="4" x2="16" y2="4" />
+            <line x1="2" y1="9" x2="16" y2="9" />
+            <line x1="2" y1="14" x2="16" y2="14" />
+          </svg>
+        </button>
+        <div class="brand">
+          <div class="logo" aria-hidden="true">
+            <svg
+              viewBox="0 0 40 40"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <!-- Waves -->
+              <path
+                d="M4 30 Q10 26 16 30 Q22 34 28 30 Q34 26 38 30"
+                stroke="currentColor"
+                stroke-width="1.6"
+                fill="none"
+                stroke-linecap="round"
+              />
+              <path
+                d="M2 34 Q8 30 14 34 Q20 38 26 34 Q32 30 38 34"
+                stroke="currentColor"
+                stroke-width="1.2"
+                fill="none"
+                stroke-linecap="round"
+                opacity="0.5"
+              />
+              <!-- Hull -->
+              <path
+                d="M12 28 L14 22 L28 22 L30 28 Z"
+                fill="currentColor"
+                opacity="0.9"
+              />
+              <!-- Mast -->
+              <line
+                x1="20"
+                y1="22"
+                x2="20"
+                y2="8"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <!-- Sail -->
+              <path
+                d="M21 9 L21 20 L30 20 Z"
+                fill="currentColor"
+                opacity="0.7"
+              />
+              <path
+                d="M19 10 L19 20 L12 20 Z"
+                fill="currentColor"
+                opacity="0.4"
+              />
+              <!-- Flag -->
+              <path d="M20 8 L26 6 L20 4" fill="currentColor" opacity="0.8" />
+            </svg>
+          </div>
+          <div class="brand-copy">
+            <div class="name">Journey A.I</div>
+            <div class="sub">Academic agent</div>
+          </div>
+          <button
+            class="btn-icon sidebar-collapse-toggle"
+            id="btnSidebarToggle"
+            aria-label="Collapse sidebar"
+            title="Collapse sidebar"
+            aria-expanded="true"
+          >
+            <svg
+              viewBox="0 0 16 16"
+              width="14"
+              height="14"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.4"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M10.5 3.5 6 8l4.5 4.5" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="navlabel">Plan</div>
+        <nav class="nav" id="navMain" aria-label="Main navigation"></nav>
+
+        <div class="navlabel">Study</div>
+        <nav class="nav" id="navStudy" aria-label="Study tools"></nav>
+
+        <div class="sidebar-foot" role="complementary">
+          <div
+            id="aiStatus"
+            class="notice info tiny"
+            role="status"
+            aria-live="polite"
+          ></div>
+          <button
+            class="btn block sm"
+            id="btnQuickAdd"
+            aria-label="Add a new task"
+          >
+            Add a task
+          </button>
+          <button
+            class="btn ghost block sm"
+            id="btnHelp"
+            aria-label="How it works"
+          >
+            How it works
+          </button>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <button
+            class="btn-icon"
+            id="btnThemeToggle"
+            aria-label="Toggle dark mode"
+            title="Toggle dark mode"
+          >
+            <svg
+              class="icon-sun"
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+            >
+              <circle cx="8" cy="8" r="3" />
+              <line x1="8" y1="1" x2="8" y2="3" />
+              <line x1="8" y1="13" x2="8" y2="15" />
+              <line x1="1" y1="8" x2="3" y2="8" />
+              <line x1="13" y1="8" x2="15" y2="8" />
+              <line x1="3.1" y1="3.1" x2="4.5" y2="4.5" />
+              <line x1="11.5" y1="11.5" x2="12.9" y2="12.9" />
+              <line x1="3.1" y1="12.9" x2="4.5" y2="11.5" />
+              <line x1="11.5" y1="4.5" x2="12.9" y2="3.1" />
+            </svg>
+            <svg
+              class="icon-moon"
+              viewBox="0 0 16 16"
+              width="16"
+              height="16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.3"
+              stroke-linecap="round"
+            >
+              <path d="M13 9.5A6 6 0 0 1 6.5 3 6 6 0 1 0 13 9.5z" />
+            </svg>
+          </button>
+          <div
+            id="termSummary"
+            class="term-summary"
+            aria-label="Active academic term"
+          ></div>
+          <span class="spacer"></span>
+          <div class="row no-print" style="gap: 6px">
+            <button class="btn sm" id="btnImport">Import files</button>
+            <button class="btn primary sm" id="btnAsk">Ask the tutor</button>
+          </div>
+        </header>
+        <div id="viewRoot" tabindex="-1"></div>
+      </main>
+    </div>
+
+    <div id="toasts" aria-live="polite" aria-atomic="false" role="status"></div>
+    <div
+      id="srStatus"
+      class="sr-only"
+      aria-live="polite"
+      aria-atomic="true"
+      role="status"
+    ></div>
+    <div id="modalRoot" aria-live="polite"></div>
+
+    <footer class="a11y-footer no-print" role="contentinfo">
+      <p>© 2026 Journey A.I Contributors - MIT License</p>
+    </footer>
+
+    <!-- Libraries (UMD/classic builds so the file also runs from file://) -->
+    <script
+      defer
+      src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"
+      integrity="sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      defer
+      src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js"
+      integrity="sha512-wuWo/cLB9W5BsZeyTYLuiTwr+FDlvjQC7C6atr+To7Jk92XHWI7WsImJZiruw7C9bnc8Zg7N0ncQI2Q/B4PQYw=="
+      crossorigin="anonymous"
+    ></script>
+    <script
+      defer
+      src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"
+      integrity="sha512-CQBWl4fJHWbryGE+Pc7UAxWMUMNMWzWxF4SQo9CgkJIN1kx6djDQZjh3Y8SZ1d+6I+1zze6Z7kHXO7q3UyZAWw=="
+      crossorigin="anonymous"
+    ></script>
+
+    <!-- Journey A.I entry point - modular ES module version -->
+    <script type="module" src="src/main.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js").catch(function () {});
+      }
+    </script>
+  </body>
+</html>

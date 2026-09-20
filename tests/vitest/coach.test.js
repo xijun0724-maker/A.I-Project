@@ -1,0 +1,122 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+
+import { Store } from '../../src/core/store.js';
+import { Coach } from '../../src/domain/coach.js';
+import { dateOnly } from '../../src/utils/date.js';
+
+beforeEach(() => {
+  Store.resetAll();
+});
+
+describe('Coach.currentWeek', () => {
+  it('returns a positive number', () => {
+    const w = Coach.currentWeek();
+    expect(w).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('Coach.weekOf', () => {
+  it('returns null for null input', () => {
+    expect(Coach.weekOf(null)).toBeNull();
+  });
+
+  it('returns a positive number for a valid date', () => {
+    const result = Coach.weekOf(new Date().toISOString());
+    expect(result).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('Coach.weekStartDate', () => {
+  it('returns a date for week 1', () => {
+    const d = Coach.weekStartDate(1);
+    expect(d).toBeInstanceOf(Date);
+  });
+
+  it('returns null if termStart is invalid', () => {
+    Store.db.settings.termStart = '';
+    expect(Coach.weekStartDate(1)).toBeNull();
+  });
+});
+
+describe('Coach.dailyCapacity', () => {
+  it('returns positive minutes for a weekday', () => {
+    const wed = new Date('2026-09-16'); // Wednesday
+    expect(Coach.dailyCapacity(wed)).toBeGreaterThan(0);
+  });
+
+  it('returns positive minutes for a weekend day', () => {
+    const sat = new Date('2026-09-19'); // Saturday
+    expect(Coach.dailyCapacity(sat)).toBeGreaterThan(0);
+  });
+
+  it('weekend capacity differs from weekday', () => {
+    const wed = new Date('2026-09-16');
+    const sat = new Date('2026-09-19');
+    const wd = Coach.dailyCapacity(wed);
+    const we = Coach.dailyCapacity(sat);
+    expect(wd).not.toBe(we);
+  });
+});
+
+describe('Coach.hoursNext', () => {
+  it('returns total minutes for N days', () => {
+    const h = Coach.hoursNext(7);
+    expect(h).toBeGreaterThan(0);
+  });
+
+  it('scales linearly', () => {
+    const h1 = Coach.hoursNext(1);
+    const h7 = Coach.hoursNext(7);
+    expect(h7).toBeGreaterThan(h1);
+  });
+});
+
+describe('Coach.logActivity', () => {
+  it('creates an activity row for today', () => {
+    Coach.logActivity(30, 1);
+    const today = dateOnly(new Date());
+    const row = Store.db.activity.find(a => a.date === today);
+    expect(row).toBeDefined();
+    expect(row.minutes).toBe(30);
+    expect(row.completed).toBe(1);
+  });
+
+  it('accumulates on repeated calls', () => {
+    Coach.logActivity(20, 0);
+    Coach.logActivity(10, 1);
+    const today = dateOnly(new Date());
+    const row = Store.db.activity.find(a => a.date === today);
+    expect(row.minutes).toBe(30);
+    expect(row.completed).toBe(1);
+  });
+});
+
+describe('Coach.recommendations', () => {
+  it('returns an array', () => {
+    const recs = Coach.recommendations();
+    expect(Array.isArray(recs)).toBe(true);
+  });
+
+  it('returns priority rec for open tasks', () => {
+    Store.db.events = [{
+      id: 'e1', title: 'Essay', type: 'assignment', status: 'open',
+      courseId: null, due: new Date(Date.now() + 3 * 86400000).toISOString(),
+      weight: 50, subtasks: [],
+    }];
+    const recs = Coach.recommendations();
+    const priority = recs.find(r => r.kind === 'priority');
+    expect(priority).toBeDefined();
+    expect(priority.title).toContain('Essay');
+  });
+
+  it('returns overdue rec for past-due tasks', () => {
+    Store.db.events = [{
+      id: 'e2', title: 'Late hw', type: 'assignment', status: 'open',
+      courseId: null, due: new Date(Date.now() - 2 * 86400000).toISOString(),
+      weight: 30, subtasks: [],
+    }];
+    const recs = Coach.recommendations();
+    const overdue = recs.find(r => r.kind === 'risk' && r.title.includes('overdue'));
+    expect(overdue).toBeDefined();
+  });
+});

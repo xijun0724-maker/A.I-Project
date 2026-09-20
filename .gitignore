@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# Temporary files
+.tmp-*
+.tmp-chrome-profile/
+.tmp-server.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Backups (keep these out of version control)
+journey-ai-backup-*.json
+
+# Old files (to be removed)
+index.html.bak
+index.pre-redesign.html
+
+# opencode / AI agent config
+.agents/
+.claude/
+.freebuff/
+skills-lock.json

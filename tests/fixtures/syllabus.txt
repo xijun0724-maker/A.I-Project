@@ -1,0 +1,59 @@
+CS 301 - Data Structures and Algorithms
+Fall Term 2026
+Instructor: Dr. R. Mehta
+Lecture: MWF 9:00 - 10:00, Room Eng 214
+Office hours: Tuesday 14:00
+
+Grading:
+Problem Sets 20%
+Programming Project 30%
+Midterm Exam 20%
+Final Exam 25%
+Participation 5%
+
+Course Schedule
+
+Week 1: Course introduction, complexity analysis and asymptotic notation
+  Reading: CLRS Chapter 1, pp. 1-28
+
+Week 2: Arrays, strings and the two-pointer technique
+  Reading: CLRS Chapter 2
+
+Week 3: Linked lists, stacks and queues
+  Reading: CLRS Chapter 10, pp. 235-260
+  Problem Set 1 due Sep 25 at 11:59 PM
+
+Week 4: Recursion and backtracking
+  Reading: CLRS Chapter 4
+
+Week 5: Trees, traversals and binary search trees
+  Reading: CLRS Chapter 12
+  Quiz 1 in class
+
+Week 6: Balanced trees and heaps
+  Reading: CLRS Chapter 13
+
+Week 7: Hash tables and amortised analysis
+  Reading: CLRS Chapter 11
+  Problem Set 2 due Oct 16 at 11:59 PM
+
+Week 8: Midterm review and exam
+  Midterm Exam on Oct 21
+
+Week 9: Graphs, breadth-first and depth-first search
+  Reading: CLRS Chapter 22
+
+Week 10: Shortest paths and Dijkstra's algorithm
+  Reading: CLRS Chapter 24
+
+Week 11: Dynamic programming
+  Reading: CLRS Chapter 15
+  Project proposal due Nov 6
+
+Week 12: Greedy algorithms
+  Reading: CLRS Chapter 16
+
+Week 13: Project work week
+
+Week 14: Final project demonstration and submission
+  Final Project due Dec 4

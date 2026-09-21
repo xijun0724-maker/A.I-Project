@@ -93,6 +93,6 @@ export function clearApiKeyFn() {
   Store.db.settings.apiKey = "";
   clearApiKey(provider);
   Store.saveNow();
-  Router.render();
+  Router.scheduleRender();
   toast("API key cleared.", "ok");
 }

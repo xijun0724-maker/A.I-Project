@@ -103,7 +103,7 @@ export function courseModal(courseId) {
           );
         Store.saveNow();
         closeFn();
-        Router.render();
+        Router.scheduleRender();
         UI.toastSaved(c ? "Course updated." : "Course created.");
       });
     },

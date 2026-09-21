@@ -1,7 +1,9 @@
 /**
  * File extraction utility for Journey A.I
- * Bridges pdf.js and mammoth (loaded via CDN) to a unified Extract API.
+ * Bridges pdf.js and mammoth (loaded lazily from CDN) to a unified Extract API.
  */
+
+import { loadPdf, loadMammoth } from "./cdn.js";
 
 function kindFromName(name) {
   const lower = (name || "").toLowerCase();
@@ -38,21 +40,15 @@ function readAsText(file) {
   });
 }
 
-function ensurePdfWorker(pdfjsLib) {
-  if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  }
-}
-
 async function extractPdf(file, onProgress) {
-  const pdfjsLib = window.pdfjsLib;
-  if (!pdfjsLib)
+  let pdfjsLib;
+  try {
+    pdfjsLib = await loadPdf();
+  } catch (_e) {
     throw new Error(
       "PDF.js library not loaded. Check your internet connection.",
     );
-
-  ensurePdfWorker(pdfjsLib);
+  }
 
   const buffer = await readAsArrayBuffer(file);
   const data = new Uint8Array(buffer);
@@ -204,11 +200,14 @@ async function extractPdf(file, onProgress) {
 }
 
 async function extractDocx(file) {
-  const mammothLib = window.mammoth;
-  if (!mammothLib)
+  let mammothLib;
+  try {
+    mammothLib = await loadMammoth();
+  } catch (_e) {
     throw new Error(
       "Mammoth library not loaded. Check your internet connection.",
     );
+  }
 
   const buffer = await readAsArrayBuffer(file);
   const result = await mammothLib.extractRawText({ arrayBuffer: buffer });

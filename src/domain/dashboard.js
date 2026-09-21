@@ -1,5 +1,5 @@
 /**
- * Dashboard — KPIs, charts, and analytics for the main dashboard screen
+ * Dashboard — KPIs and analytics for the main dashboard screen
  */
 
 import { Store } from "../core/store.js";
@@ -8,7 +8,7 @@ import { UI } from "../core/state.js";
 import { Tasks } from "./tasks.js";
 import { Coach } from "./coach.js";
 import { sum, pct, sortBy } from "../utils/helpers.js";
-import { DAY, addDays, dateOnly, fromIso, daysUntil } from "../utils/date.js";
+import { DAY, fromIso, daysUntil } from "../utils/date.js";
 import { clamp } from "../utils/helpers.js";
 
 export const Dashboard = {};
@@ -45,48 +45,6 @@ Dashboard.kpis = function () {
     avgGrade: avg,
     remainingMinutes: remMin,
   };
-};
-
-Dashboard.workloadByWeek = function (weeks) {
-  weeks = weeks || 8;
-  const start = sortBy(Store.db.lessons, function (l) {
-    return l.start || "";
-  })[0];
-  const startDate =
-    start && start.start ? fromIso(start.start) : addDays(new Date(), -21);
-  const labels = [],
-    keys = [];
-  for (let i = 0; i < weeks; i++) {
-    const d = addDays(startDate, i * 7);
-    keys.push(dateOnly(d));
-    labels.push(
-      "W" +
-        (i + 1) +
-        " " +
-        d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-    );
-  }
-  const courses = UI.courses();
-  const data = courses.map(function (c) {
-    return keys.map(function (k) {
-      const end = dateOnly(addDays(fromIso(k + "T00:00"), 6));
-      return sum(
-        Store.db.events.filter(function (e) {
-          return (
-            e.courseId === c.id &&
-            Tasks.isOpen(e) &&
-            e.due &&
-            e.due.slice(0, 10) >= k &&
-            e.due.slice(0, 10) <= end
-          );
-        }),
-        function (e) {
-          return Math.round((Tasks.remainingMinutes(e) / 60) * 10) / 10;
-        },
-      );
-    });
-  });
-  return { labels: labels, courses: courses, data: data };
 };
 
 Dashboard.completionByCourse = function () {

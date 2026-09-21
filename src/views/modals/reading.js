@@ -104,7 +104,7 @@ export function readingModal(readingId) {
         else Store.db.readings.push(Object.assign({ id: uid("rdg") }, payload));
         Store.saveNow();
         closeFn();
-        Router.render();
+        Router.scheduleRender();
         UI.toastSaved();
       });
       const d = q("#rdDel", m);
@@ -116,7 +116,7 @@ export function readingModal(readingId) {
           });
           Store.saveNow();
           closeFn();
-          Router.render();
+          Router.scheduleRender();
           toast("Reading removed.", "ok");
         });
     },

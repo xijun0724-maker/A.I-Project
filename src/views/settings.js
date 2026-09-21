@@ -1,18 +1,17 @@
 import { Store } from "../core/store.js";
-import { UI } from "../core/state.js";
 import { CFG } from "../config/constants.js";
 import * as AI from "../ai/index.js";
 import { esc, fmtBytes } from "../utils/helpers.js";
-import { statBox, pageHead } from "./shared.js";
+import { isLoaded } from "../utils/cdn.js";
+import { statBox, pageHead, bar } from "./shared.js";
 
 export function settings() {
   const s = Store.db.settings;
   const st = AI.status();
   const usage = Store.usage();
   const libs = {
-    pdf: !!window.pdfjsLib,
-    mammoth: !!window.mammoth,
-    chart: !!window.Chart,
+    pdf: isLoaded("pdf"),
+    mammoth: isLoaded("mammoth"),
   };
   const usedPct = Math.round((usage.bytes / usage.cap) * 100);
 
@@ -143,7 +142,7 @@ export function settings() {
     " (" +
     usedPct +
     "%)</span></div>" +
-    UI.bar(usedPct, usedPct > 80 ? "bad" : usedPct > 60 ? "warn" : "ok") +
+    bar(usedPct, usedPct > 80 ? "bad" : usedPct > 60 ? "warn" : "ok") +
     '<div class="row mt">' +
     '<button class="btn" data-act="data-export">Export everything (JSON)</button>' +
     '<button class="btn" data-act="data-import">Import a backup</button>' +
@@ -161,17 +160,12 @@ export function settings() {
     '<div class="kv"><span class="k">PDF parsing (pdf.js)</span><span class="v">' +
     (libs.pdf
       ? '<span class="badge ok">ready</span>'
-      : '<span class="badge high">unavailable</span>') +
+      : '<span class="badge info">on-demand</span>') +
     "</span></div>" +
     '<div class="kv"><span class="k">Word parsing (mammoth)</span><span class="v">' +
     (libs.mammoth
       ? '<span class="badge ok">ready</span>'
-      : '<span class="badge high">unavailable</span>') +
-    "</span></div>" +
-    '<div class="kv"><span class="k">Charts (Chart.js)</span><span class="v">' +
-    (libs.chart
-      ? '<span class="badge ok">ready</span>'
-      : '<span class="badge high">unavailable</span>') +
+      : '<span class="badge info">on-demand</span>') +
     "</span></div>" +
     '<div class="kv"><span class="k">Retrieval index</span><span class="v">' +
     (Store.db.chunks || []).length +

@@ -4,12 +4,28 @@
  * Extracted from views/shared.js to break the core <-> views circular
  * dependency.  state.js and other core modules import from here instead
  * of reaching into the views layer.
+ *
+ * UIState is defined here to avoid a core/state <-> core/scope circular
+ * dependency.  state.js re-exports it for backward compatibility.
  */
 
 import { Store } from "./store.js";
-import { UIState } from "./state.js";
 import { Tasks } from "../domain/tasks.js";
 import { sortBy } from "../utils/helpers.js";
+
+/**
+ * Application UI state — single source of truth.
+ */
+export const UIState = {
+  view: "dashboard",
+  courseId: "all",
+  tab: {},
+  chatPending: false,
+  chatSources: [],
+  chatSourcesOpen: true,
+  pendingPrompt: null,
+  draft: null,
+};
 
 export function courses() {
   let list = Store.db.courses.slice();
@@ -56,16 +72,4 @@ export function eventProgress(e) {
 
 export function remainingMinutes(e) {
   return Tasks.remainingMinutes(e);
-}
-
-/** Chart instance registry - shared across the app. */
-export const charts = {};
-
-export function killCharts() {
-  Object.keys(charts).forEach((k) => {
-    try {
-      charts[k].destroy();
-    } catch (_e) { /* intentionally empty */ }
-    delete charts[k];
-  });
 }

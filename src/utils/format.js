@@ -38,7 +38,15 @@ export function bar(pct, cls) {
 export function ring(pct) {
   pct = Math.round(pct);
   return (
-    '<div class="ring" style="--p:' + pct + '"><span>' + pct + "%</span></div>"
+    '<div class="ring" style="--p:' +
+    pct +
+    '" role="progressbar" aria-valuenow="' +
+    pct +
+    '" aria-valuemin="0" aria-valuemax="100" aria-label="' +
+    pct +
+    '% complete"><span>' +
+    pct +
+    "%</span></div>"
   );
 }
 
@@ -160,12 +168,14 @@ export function dueLabel(iso) {
  * @returns {string} HTML string
  */
 export function statBox(value, label, detail, tone) {
-  const vStyle =
-    tone === "bad"
-      ? ' style="color:#c4332a"'
-      : tone === "ok"
-        ? ' style="color:var(--ok)"'
-        : "";
+  const tones = {
+    bad: "var(--error)",
+    ok: "var(--ok)",
+    info: "var(--info)",
+    warn: "var(--warn)",
+  };
+  const color = tones[tone];
+  const vStyle = color ? ' style="color:' + color + '"' : "";
   return (
     '<div class="card pad-sm"><div class="kpi"><div class="v"' +
     vStyle +

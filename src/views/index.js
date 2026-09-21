@@ -1,5 +1,5 @@
 // Re-export all view modules
-export { dashboard, afterDashboard, dashboardView } from "./dashboard.js";
+export { dashboard, dashboardView } from "./dashboard.js";
 export { tasks, afterTasks, tasksView } from "./tasks.js";
 export { roadmap, roadmapView } from "./roadmap.js";
 export { planner, plannerView } from "./planner.js";
@@ -30,7 +30,7 @@ export {
   eventModal,
   readingModal,
 } from "./modals/index.js";
-export { Shared, killCharts, chartTheme, charts } from "./shared.js";
+export { Shared } from "./shared.js";
 
 // Register all views with the Router, and wire shared Views helpers
 import { Views } from "../core/state.js";
@@ -56,7 +56,6 @@ export function registerAll(Router) {
   Router.registerView("dashboard", {
     title: "Dashboard",
     fn: dashboardView.fn,
-    after: dashboardView.after,
   });
   Router.registerView("roadmap", {
     title: "Lesson roadmap",

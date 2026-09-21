@@ -68,8 +68,9 @@ function renderTaskCard(e) {
     return s.done;
   }).length;
   const openEnded = subs.length > 1;
+  const isOverdue = e.status !== "done" && Tasks.isOverdue(e);
 
-  let h = '<div class="card">';
+  let h = '<div class="card' + (isOverdue ? " overdue" : "") + '">';
   h +=
     '<div class="row" style="align-items:flex-start">' +
     '<button type="button" class="chk' +
@@ -97,11 +98,13 @@ function renderTaskCard(e) {
     ' <i class="msep"></i> ' +
     esc(Store.courseName(e.courseId)) +
     (e.due
-      ? ' <i class="msep"></i> due ' +
+      ? ' <i class="msep"></i> <span class="' +
+        (isOverdue ? "due-date" : "") +
+        '">due ' +
         fmtDate(e.due, true) +
         " (" +
         rel(e.due) +
-        ")"
+        ")</span>"
       : ' <i class="msep"></i> no deadline') +
     (e.weight != null
       ? ' <i class="msep"></i> ' + e.weight + "% of grade"
@@ -278,7 +281,7 @@ export function afterTasks(root) {
   if (sel)
     sel.addEventListener("change", function () {
       UIState.tab.taskSort = sel.value;
-      Router.render();
+      Router.scheduleRender();
     });
 }
 

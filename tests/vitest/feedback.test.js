@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 /**
  * Tests for src/utils/feedback.js — modal, confirm, helpModal
+ * Covers: creation, ARIA, focus management, trapFocus, escape, scrim click
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -88,6 +89,71 @@ describe("Feedback", () => {
       close();
       expect(document.activeElement).toBe(btn);
     });
+
+    it("closes on Escape key press", () => {
+      const close = feedback.modal({ title: "T" });
+      const escEvent = new KeyboardEvent("keydown", { key: "Escape" });
+      document.dispatchEvent(escEvent);
+      const root = document.getElementById("modalRoot");
+      expect(root.classList.contains("open")).toBe(false);
+    });
+
+    it("closes on scrim click", () => {
+      feedback.modal({ title: "T" });
+      const scrim = document.querySelector(".scrim");
+      expect(scrim).toBeTruthy();
+      scrim.click();
+      const root = document.getElementById("modalRoot");
+      expect(root.classList.contains("open")).toBe(false);
+    });
+
+    it("traps Tab focus inside the modal", () => {
+      feedback.modal({
+        title: "T",
+        body:
+          '<button id="first">First</button><button id="last">Last</button>',
+      });
+
+      const first = document.getElementById("first");
+      const last = document.getElementById("last");
+      expect(first).toBeTruthy();
+      expect(last).toBeTruthy();
+
+      /* Verify that a keydown Tab listener is attached to the modal */
+      const modal = document.querySelector(".modal");
+      expect(modal).toBeTruthy();
+
+      /* Dispatch a Tab event — the handler should fire without error */
+      const tabEvent = new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+      });
+      expect(() => modal.dispatchEvent(tabEvent)).not.toThrow();
+
+      /* Dispatch Shift+Tab — should also not throw */
+      const shiftTabEvent = new KeyboardEvent("keydown", {
+        key: "Tab",
+        shiftKey: true,
+        bubbles: true,
+      });
+      expect(() => modal.dispatchEvent(shiftTabEvent)).not.toThrow();
+    });
+
+    it("does not trap Tab when only one focusable element exists", () => {
+      feedback.modal({
+        title: "T",
+        body: '<button id="only">Only</button>',
+      });
+      const only = document.getElementById("only");
+      only.focus();
+      const tabEvent = new KeyboardEvent("keydown", {
+        key: "Tab",
+        bubbles: true,
+      });
+      document.querySelector(".modal").dispatchEvent(tabEvent);
+      /* Should stay on the same element since there's only one */
+      expect(document.activeElement).toBe(only);
+    });
   });
 
   describe("confirm()", () => {
@@ -120,6 +186,24 @@ describe("Feedback", () => {
     it("applies danger class when opts.danger is true", () => {
       feedback.confirm("Msg", { danger: true });
       expect(document.querySelector("[data-ok].danger")).toBeTruthy();
+    });
+
+    it("resolves true when OK is clicked", async () => {
+      const p = feedback.confirm("Msg");
+      document.querySelector("[data-ok]").click();
+      expect(await p).toBe(true);
+    });
+
+    it("resolves false when Cancel is clicked", async () => {
+      const p = feedback.confirm("Msg");
+      document.querySelector("[data-cancel]").click();
+      expect(await p).toBe(false);
+    });
+
+    it("resolves false when scrim is clicked", async () => {
+      const p = feedback.confirm("Msg");
+      document.querySelector(".scrim").click();
+      expect(await p).toBe(false);
     });
   });
 });

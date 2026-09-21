@@ -1,7 +1,6 @@
 import { CFG } from "../config/constants.js";
 import { Store } from "../core/store.js";
 import { UIState } from "../core/state.js";
-import { Router } from "../core/router.js";
 import * as AI from "../ai/index.js";
 import { Tasks } from "../domain/tasks.js";
 import { Coach } from "../domain/coach.js";
@@ -9,6 +8,70 @@ import { esc, uid, sortBy } from "../utils/helpers.js";
 import { mdToHtml } from "../utils/markdown.js";
 import { q, toast } from "../utils/dom.js";
 import { pageHead } from "./shared.js";
+
+/* ── incremental chat rendering helpers ────────────────────────────── */
+
+function msgHtml(m) {
+  let h =
+    '<div class="msg ' +
+    (m.role === "user" ? "user" : "ai") +
+    '"><div class="av">' +
+    (m.role === "user" ? "You" : "AI") +
+    '</div><div class="bub">';
+  h +=
+    m.role === "user"
+      ? "<div>" + esc(m.content) + "</div>"
+      : mdToHtml(m.content);
+  if (m.citations && m.citations.length) {
+    h +=
+      '<div class="cites">' +
+      m.citations
+        .map(function (c) {
+          return (
+            '<div class="cite"><span class="src">[' +
+            c.n +
+            "] " +
+            esc(c.docName) +
+            "</span> - passage " +
+            (c.idx + 1) +
+            '<div class="tiny muted mt-s">' +
+            esc((c.snippet || "").slice(0, 200)) +
+            "</div></div>"
+          );
+        })
+        .join("") +
+      "</div>";
+  }
+  if (m.mode === "offline")
+    h +=
+      '<div class="tiny muted mt-s">offline retrieval <i class="msep"></i> no API key used</div>';
+  if (m.model)
+    h += '<div class="tiny muted mt-s">answered by ' + esc(m.model) + "</div>";
+  h += "</div></div>";
+  return h;
+}
+
+function appendMsg(m) {
+  const log = q("#chatLog");
+  if (!log) return;
+  log.insertAdjacentHTML("beforeend", msgHtml(m));
+  log.scrollTop = log.scrollHeight;
+}
+
+const TYPING_HTML =
+  '<div class="msg ai" id="typingIndicator"><div class="av">AI</div>' +
+  '<div class="bub"><div class="typing"><span></span><span></span><span></span></div></div></div>';
+
+function showTyping() {
+  const log = q("#chatLog");
+  if (!log || q("#typingIndicator")) return;
+  log.insertAdjacentHTML("beforeend", TYPING_HTML);
+  log.scrollTop = log.scrollHeight;
+}
+
+function hideTyping() {
+  q("#typingIndicator")?.remove();
+}
 
 export function assistant() {
   const st = AI.status();
@@ -242,12 +305,13 @@ export function sendChat(forced) {
   const lastMsg = Store.db.chat[Store.db.chat.length - 1];
   if (lastMsg && lastMsg.role === "user" && lastMsg.content === text) return;
 
-  Store.db.chat.push({
+  const userMsg = {
     id: uid("msg"),
     role: "user",
     content: text,
     ts: Date.now(),
-  });
+  };
+  Store.db.chat.push(userMsg);
 
   if (Store.db.chat.length > CFG.maxChatMessages) {
     Store.db.chat = Store.db.chat.slice(-CFG.maxChatMessages);
@@ -255,12 +319,15 @@ export function sendChat(forced) {
 
   UIState.chatPending = true;
   Store.saveNow();
-  Router.render();
+
+  // Incremental: append user message + typing indicator to DOM directly
+  appendMsg(userMsg);
+  showTyping();
 
   const chatHistory = Store.db.chat.slice(0, -1);
   AI.answer(text, { k: 5, chatHistory, docIds: UIState.chatSources || [] })
     .then(function (res) {
-      Store.db.chat.push({
+      const aiMsg = {
         id: uid("msg"),
         role: "assistant",
         content: res.text,
@@ -268,10 +335,12 @@ export function sendChat(forced) {
         citations: (res.sources || []).slice(0, 4),
         mode: res.mode,
         model: res.model || null,
-      });
+      };
+      Store.db.chat.push(aiMsg);
       UIState.chatPending = false;
       Store.saveNow();
-      Router.render();
+      hideTyping();
+      appendMsg(aiMsg);
       if (res.aiError)
         toast(
           res.aiError,
@@ -280,40 +349,46 @@ export function sendChat(forced) {
         );
     })
     .catch(function (e) {
-      UIState.chatPending = false;
-      Store.db.chat.push({
+      const errMsg = {
         id: uid("msg"),
         role: "assistant",
         content: "Something went wrong answering that: " + (e.message || e),
         ts: Date.now(),
         mode: "offline",
-      });
+      };
+      UIState.chatPending = false;
+      Store.db.chat.push(errMsg);
       Store.saveNow();
-      Router.render();
+      hideTyping();
+      appendMsg(errMsg);
     });
 }
 
 export function requestStudyPlan() {
-  Store.db.chat.push({
+  const userMsg = {
     id: uid("msg"),
     role: "user",
     content: "Build me a personalised study plan for the coming weeks.",
     ts: Date.now(),
-  });
+  };
+  Store.db.chat.push(userMsg);
   UIState.chatPending = true;
-  Router.render();
+  appendMsg(userMsg);
+  showTyping();
   AI.studyPlan()
     .then(function (res) {
-      Store.db.chat.push({
+      const aiMsg = {
         id: uid("msg"),
         role: "assistant",
         content: res.text,
         ts: Date.now(),
         mode: res.mode,
-      });
+      };
+      Store.db.chat.push(aiMsg);
       UIState.chatPending = false;
       Store.saveNow();
-      Router.render();
+      hideTyping();
+      appendMsg(aiMsg);
       if (res.aiError)
         toast(
           "AI request failed, using the built-in planner. " + res.aiError,
@@ -322,8 +397,8 @@ export function requestStudyPlan() {
     })
     .catch(function () {
       UIState.chatPending = false;
+      hideTyping();
       toast("Study plan request failed.", "bad");
-      Router.render();
     });
 }
 

@@ -31,7 +31,7 @@ export function deleteCourse(id) {
     if (!yes) return;
     Store.removeCourse(id);
     if (UIState.courseId === id) UIState.courseId = "all";
-    Router.render();
+    Router.scheduleRender();
     toast("Course deleted.", "ok");
   });
 }
@@ -51,7 +51,7 @@ export function deleteDocument(id) {
       (sourceId) => sourceId !== id,
     );
     Store.saveNow();
-    Router.render();
+    Router.scheduleRender();
     toast("Document removed.", "ok");
   });
 }
@@ -61,7 +61,7 @@ export function toggleLesson(id) {
   if (!l) return;
   l.done = !l.done;
   Store.saveNow();
-  Router.render();
+  Router.scheduleRender();
 }
 
 export function clearChat() {
@@ -73,7 +73,7 @@ export function clearChat() {
     if (!yes) return;
     Store.db.chat = [];
     Store.saveNow();
-    Router.render();
+    Router.scheduleRender();
     toast("Chat cleared.", "ok");
   });
 }

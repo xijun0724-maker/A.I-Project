@@ -63,16 +63,12 @@ describe("Router.viewDefs", () => {
 });
 
 describe("Router.navGroups structure", () => {
-  it("has exactly two groups", () => {
-    expect(Router.navGroups.length).toBe(2);
+  it("has exactly one group", () => {
+    expect(Router.navGroups.length).toBe(1);
   });
 
-  it("first group targets #navMain", () => {
+  it("group targets #navMain", () => {
     expect(Router.navGroups[0].target).toBe("#navMain");
-  });
-
-  it("second group targets #navStudy", () => {
-    expect(Router.navGroups[1].target).toBe("#navStudy");
   });
 
   it("each item has id, label, and icon", () => {
@@ -88,20 +84,21 @@ describe("Router.navGroups structure", () => {
     });
   });
 
-  it("has dashboard as first main nav item", () => {
+  it("has dashboard as first nav item", () => {
     expect(Router.navGroups[0].items[0].id).toBe("dashboard");
   });
 
-  it("has settings in study nav", () => {
-    const studyIds = Router.navGroups[1].items.map((i) => i.id);
-    expect(studyIds).toContain("settings");
+  it("has roadmap, library, courses, and chat in nav", () => {
+    const ids = Router.navGroups[0].items.map((i) => i.id);
+    expect(ids).toContain("roadmap");
+    expect(ids).toContain("library");
+    expect(ids).toContain("courses");
+    expect(ids).toContain("assistant");
   });
-  it("keeps planner as the main planning view and demotes roadmap", () => {
-    const mainIds = Router.navGroups[0].items.map((i) => i.id);
-    const studyIds = Router.navGroups[1].items.map((i) => i.id);
-    expect(mainIds).toContain("planner");
-    expect(mainIds).not.toContain("roadmap");
-    expect(studyIds).toContain("roadmap");
+
+  it("no settings in navGroups", () => {
+    const allIds = Router.navGroups.flatMap((g) => g.items.map((i) => i.id));
+    expect(allIds).not.toContain("settings");
   });
 });
 
@@ -116,6 +113,7 @@ describe("Router navigation", () => {
     expect(typeof Router.renderNav).toBe("function");
     expect(typeof Router.syncChrome).toBe("function");
     expect(typeof Router.render).toBe("function");
+    expect(typeof Router.scheduleRender).toBe("function");
     expect(typeof Router.navigate).toBe("function");
     expect(typeof Router.init).toBe("function");
   });

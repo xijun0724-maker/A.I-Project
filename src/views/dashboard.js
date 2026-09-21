@@ -1,4 +1,3 @@
-import { CFG } from "../config/constants.js";
 import { Store } from "../core/store.js";
 import { UI, UIState } from "../core/state.js";
 import { Dashboard } from "../domain/dashboard.js";
@@ -14,21 +13,12 @@ import {
   mondayOf,
   addDays,
 } from "../utils/date.js";
-import { q } from "../utils/dom.js";
 import {
   empty,
   bar,
-  ring,
-  eventBadge,
-  charts as sharedCharts,
-  chartTheme,
   statBox,
   pageHead,
 } from "./shared.js";
-
-function registerChart(key, chart) {
-  sharedCharts[key] = chart;
-}
 
 function renderWeekBand(
   wkNo,
@@ -44,13 +34,13 @@ function renderWeekBand(
   const slack = wkCapacity - wkMinutes;
   return (
     '<div class="band">' +
-    '<div class="band-n">' +
+    '<div class="band-n">Week ' +
     wkNo +
-    "<small>week</small></div>" +
+    "</div>" +
     '<div class="band-body">' +
     '<div class="band-title">' +
     fmtDate(dateOnly(monday), false) +
-    " to " +
+    " \u2013 " +
     fmtDate(dateOnly(sunday), false) +
     "</div>" +
     '<div class="band-meta">' +
@@ -58,41 +48,41 @@ function renderWeekBand(
       ? wkEvents.length +
         " task" +
         (wkEvents.length === 1 ? "" : "s") +
-        " due this week. Next: " +
+        " due. Next: " +
         esc(wkEvents[0].title) +
         ", " +
         rel(wkEvents[0].due) +
         "."
-      : "Nothing is due this week. " +
+      : "Nothing due this week. " +
         (nextEv
-          ? "The next deadline is " +
+          ? "Next: " +
             esc(nextEv.title) +
             ", " +
             rel(nextEv.due) +
             "."
-          : "Add a syllabus to build the term out.")) +
-    "</div>" +
+          : "Import a syllabus to get started.")) +
+    "</div></div>" +
     '<div class="band-load">' +
     "<div><b>" +
     minutesToHM(wkMinutes) +
-    "</b><span>work left this week</span></div>" +
+    "</b><span>work</span></div>" +
     "<div><b>" +
     minutesToHM(wkCapacity) +
-    "</b><span>study time you have</span></div>" +
+    "</b><span>capacity</span></div>" +
     "<div><b" +
     (slack < 0 ? ' style="color:var(--error)"' : "") +
     ">" +
     (slack < 0 ? "" : "+") +
     minutesToHM(Math.abs(slack)) +
     "</b><span>" +
-    (slack < 0 ? "short of the week\u2019s work" : "spare capacity") +
+    (slack < 0 ? "overloaded" : "slack") +
     "</span></div>" +
     (overdueNow.length
       ? '<div><b style="color:var(--error)">' +
         overdueNow.length +
-        "</b><span>past due</span></div>"
+        "</b><span>overdue</span></div>"
       : "") +
-    "</div></div></div>"
+    "</div></div>"
   );
 }
 
@@ -153,28 +143,6 @@ function renderRecommendations(recs) {
   return h;
 }
 
-function renderTermProgress(ready) {
-  if (!ready) return '<div class="grid gap-md"></div>';
-  return (
-    '<div class="grid gap-md">' +
-    '<div class="card"><div class="card-head"><h3>Term progress</h3></div>' +
-    '<div class="row" style="align-items:center;gap:14px">' +
-    ring(ready.workPct) +
-    '<div class="flex-fill"><div class="small"><strong>' +
-    ready.workPct +
-    "%</strong> of work complete</div>" +
-    '<div class="tiny muted mb-s">' +
-    ready.timePct +
-    "% of the term has elapsed</div>" +
-    bar(ready.timePct, "warn") +
-    "</div></div>" +
-    '<p class="hint">' +
-    (ready.workPct + 12 < ready.timePct
-      ? "Your completion is behind the term clock \u2014 schedule catch-up blocks in the planner."
-      : "You are tracking at or ahead of the term pace.") +
-    "</p></div></div>"
-  );
-}
 
 function renderCourseProgress() {
   const rows = Dashboard.completionByCourse();
@@ -340,8 +308,8 @@ export function dashboard() {
 
   if (!ready) {
     h +=
-      '<div class="notice info mb"><div>Every screen here is numbered by week, so a term start and end are what make it legible. ' +
-      '<button class="btn xs" data-act="nav" data-arg="settings">Set term dates</button></div></div>';
+      '<div class="notice info mb"><div>Set term dates to enable week numbering and workload tracking. ' +
+      '<button class="btn xs" data-act="nav" data-arg="settings">Configure</button></div></div>';
   } else {
     h += renderWeekBand(
       wkNo,
@@ -358,104 +326,38 @@ export function dashboard() {
 
   h +=
     '<div class="register">' +
-    statBox(k.open, "Open tasks", k.due7 + " due within 7 days") +
+    statBox(k.open, "Open tasks", k.due7 + " due within 7 days", "info") +
     statBox(
       k.overdue,
       "Overdue",
       k.overdue ? "needs attention now" : "nothing overdue",
-      k.overdue ? "bad" : "ok",
+      "bad",
     ) +
     statBox(
       k.completion + "%",
       "Completion",
       k.done + " of " + (k.done + k.open) + " tasks done",
+      "ok",
     ) +
     statBox(
       minutesToHM(k.remainingMinutes),
       "Work remaining",
       "estimated from task complexity",
+      k.remainingMinutes > 2000 ? "warn" : "",
     ) +
     "</div>";
 
   h += '<div class="grid g-2-1 mb">';
   h += renderRecommendations(recs);
-  h += '<div class="grid gap-md">';
-  h += renderTermProgress(ready);
-  h += "</div></div>";
-
-  h +=
-    '<div class="grid g-2-1 mb">' +
-    '<div class="card"><div class="card-head"><h2>Workload by week</h2><span class="spacer"></span><span class="tiny muted">remaining task effort, by course</span></div>' +
-    '<div style="height:250px"><canvas id="chartWorkload" role="img" aria-label="Workload by week chart"></canvas></div></div>' +
-    "</div>";
-
-  h += '<div class="grid g-2-1">';
   h += renderCourseProgress();
-  h += renderUpcoming();
   h += "</div>";
 
-  return h;
-}
+  h += renderUpcoming();
 
-export function afterDashboard(root) {
-  if (!chartTheme()) return;
-  const wl = Dashboard.workloadByWeek(8);
-  const pal = CFG.palette;
-  const wlCanvas = q("#chartWorkload", root);
-  if (wlCanvas) {
-    registerChart(
-      "workload",
-      new Chart(wlCanvas, {
-        type: "bar",
-        data: {
-          labels: wl.labels,
-          datasets: wl.courses.map(function (c, i) {
-            return {
-              label: c.code || c.title,
-              data: wl.data[i],
-              backgroundColor: c.color || pal[i % pal.length],
-              borderRadius: 4,
-              stack: "w",
-            };
-          }),
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: "bottom",
-              labels: {
-                boxWidth: 10,
-                boxHeight: 10,
-                usePointStyle: true,
-                padding: 12,
-              },
-            },
-            tooltip: {
-              callbacks: {
-                label: function (c) {
-                  return c.dataset.label + ": " + c.parsed.y + " h";
-                },
-              },
-            },
-          },
-          scales: {
-            x: { stacked: true, grid: { display: false } },
-            y: {
-              stacked: true,
-              beginAtZero: true,
-              title: { display: true, text: "hours" },
-            },
-          },
-        },
-      }),
-    );
-  }
+  return h;
 }
 
 export const dashboardView = {
   title: "Dashboard",
   fn: dashboard,
-  after: afterDashboard,
 };

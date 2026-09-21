@@ -233,7 +233,7 @@ export function eventModal(eventId, preset) {
         Tasks.recompute(target);
         Store.saveNow();
         closeFn();
-        Router.render();
+        Router.scheduleRender();
         UI.toastSaved(e ? "Task updated." : "Task added.");
       });
       const del = q("#evDelete", m);
@@ -253,7 +253,7 @@ export function eventModal(eventId, preset) {
             });
             Store.saveNow();
             closeFn();
-            Router.render();
+            Router.scheduleRender();
             toast("Task deleted.", "ok");
           });
         });

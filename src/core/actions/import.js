@@ -78,7 +78,7 @@ export function importData() {
           if (data[k]) Store.db[k] = data[k];
         });
         Store.saveNow();
-        Router.render();
+        Router.scheduleRender();
         toast("Data imported successfully.", "ok");
       } catch (e) {
         toast(e.message || "Import failed.", "bad", "Import error");
@@ -288,5 +288,5 @@ export function commitDraft() {
 
 export function cancelDraft() {
   UI.draft = null;
-  Router.render();
+  Router.scheduleRender();
 }

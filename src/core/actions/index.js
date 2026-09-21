@@ -5,6 +5,8 @@
  * silently doing nothing.
  *
  * Domain-specific handlers are split into sub-modules under ./actions/.
+ * View-layer functions (modals, assistant) are loaded via late dynamic
+ * imports to keep the core -> views dependency direction clean.
  */
 
 import { Store } from "../store.js";
@@ -12,14 +14,6 @@ import { UIState } from "../state.js";
 import { Router } from "../router.js";
 import { toast } from "../../utils/dom.js";
 import { RAG } from "../../domain/rag.js";
-import { sendChat, requestStudyPlan } from "../../views/assistant.js";
-import {
-  courseModal,
-  eventModal,
-  lessonModal,
-  docModal,
-  readingModal,
-} from "../../views/modals/index.js";
 import {
   deleteCourse,
   deleteDocument,
@@ -121,14 +115,17 @@ function act(action, el) {
   if (action === "go-import") return Router.navigate("import");
   if (action === "ask") {
     Router.navigate("assistant");
-    requestAnimationFrame(() => sendChat(arg));
+    requestAnimationFrame(async () => {
+      const { sendChat } = await import("../../views/assistant.js");
+      sendChat(arg);
+    });
     return;
   }
   if (action === "tab") {
     const v = el?.dataset?.view;
     if (v && arg) {
       UIState.tab[v] = arg;
-      Router.render();
+      Router.scheduleRender();
     }
     return;
   }
@@ -141,9 +138,14 @@ function act(action, el) {
     Router.navigate("assistant");
     const ev = Store.db.events.find((e) => e.id === id);
     if (ev)
-      requestAnimationFrame(() =>
-        sendChat('Help me understand "' + String(ev.title || "").replace(/["'`]/g, "") + '"'),
-      );
+      requestAnimationFrame(async () => {
+        const { sendChat } = await import("../../views/assistant.js");
+        sendChat(
+          'Help me understand "' +
+            String(ev.title || "").replace(/["'`]/g, "") +
+            '"',
+        );
+      });
     return;
   }
 
@@ -157,17 +159,23 @@ function act(action, el) {
     reindex: reindexFn,
     "ai-test": testAI,
     "ai-key-clear": clearApiKeyFn,
-    "new-course": () => courseModal(),
-    "edit-course": () => courseModal(id),
+    "new-course": () => _modal("courseModal"),
+    "edit-course": () => _modal("courseModal", id),
     "del-course": () => deleteCourse(id),
-    "event-edit": () => eventModal(id),
-    "lesson-edit": () => lessonModal(id),
-    "lesson-new": () => lessonModal(),
+    "event-edit": () => _modal("eventModal", id),
+    "lesson-edit": () => _modal("lessonModal", id),
+    "lesson-new": () => _modal("lessonModal"),
     "lesson-toggle": () => toggleLesson(id),
-    "view-doc": () => docModal(id),
+    "view-doc": () => _modal("docModal", id),
     "del-doc": () => deleteDocument(id),
-    "chat-send": () => sendChat(),
-    "chat-plan": requestStudyPlan,
+    "chat-send": async () => {
+      const { sendChat } = await import("../../views/assistant.js");
+      sendChat();
+    },
+    "chat-plan": async () => {
+      const { requestStudyPlan } = await import("../../views/assistant.js");
+      requestStudyPlan();
+    },
     "chat-clear": clearChat,
     "chat-source": () => {
       const sourceId = id;
@@ -177,15 +185,15 @@ function act(action, el) {
         selected.indexOf(sourceId) === -1
           ? selected.concat(sourceId)
           : selected.filter((value) => value !== sourceId);
-      Router.render();
+      Router.scheduleRender();
     },
     "chat-sources-clear": () => {
       UIState.chatSources = [];
-      Router.render();
+      Router.scheduleRender();
     },
     "chat-sources-toggle": () => {
       UIState.chatSourcesOpen = !UIState.chatSourcesOpen;
-      Router.render();
+      Router.scheduleRender();
     },
     "plan-generate": generatePlan,
     "plan-clear": clearPlan,
@@ -198,13 +206,13 @@ function act(action, el) {
     "export-csv": exportCSV,
     "sub-toggle": () => toggleSubtask(id, arg),
     "task-toggle": () => toggleTask(id),
-    "task-new": () => eventModal(),
-    "reading-new": () => readingModal(),
-    "reading-edit": () => readingModal(id),
+    "task-new": () => _modal("eventModal"),
+    "reading-new": () => _modal("readingModal"),
+    "reading-edit": () => _modal("readingModal", id),
     "reading-toggle": () => toggleReading(id),
     "doc-reanalyse": () => {
       RAG.reindexAll();
-      toast("Re-analysing document…", "ok");
+      toast("Re-analysing document\u2026", "ok");
     },
     "doc-ask": () => {
       if (!id) return;
@@ -217,6 +225,12 @@ function act(action, el) {
 
   const handler = dispatch[action];
   if (handler) handler();
+}
+
+/** Late-import a modal function from views to avoid top-level core -> views dep. */
+async function _modal(name, ...args) {
+  const mod = await import("../../views/modals/index.js");
+  if (typeof mod[name] === "function") mod[name](...args);
 }
 
 export { act, KNOWN_ACTIONS };

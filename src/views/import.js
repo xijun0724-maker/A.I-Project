@@ -159,7 +159,7 @@ export function importBind(root) {
       courseId: resolveCourse(),
       newCourse: newCourseFields(),
     };
-    Router.render();
+    Router.scheduleRender();
   });
 
   function resolveCourse() {
@@ -214,7 +214,7 @@ export function importBind(root) {
         courseId: courseId,
         newCourse: newCourseFields(),
       };
-      Router.render();
+      Router.scheduleRender();
     });
   }
 }

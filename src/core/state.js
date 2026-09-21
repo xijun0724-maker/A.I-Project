@@ -1,9 +1,13 @@
 /**
  * Application state management for Journey A.I
  * Centralized state for UI, views, and application context.
+ *
+ * UIState is defined in core/scope.js to avoid a circular dependency.
+ * This module re-exports it for backward compatibility.
  */
 
 import {
+  UIState,
   courses,
   courseIds,
   inScope,
@@ -13,23 +17,7 @@ import {
   docs,
   eventProgress,
   remainingMinutes,
-  charts,
-  killCharts,
 } from "./scope.js";
-
-/**
- * Application UI state
- */
-export const UIState = {
-  view: "dashboard",
-  courseId: "all",
-  tab: {},
-  chatPending: false,
-  chatSources: [],
-  chatSourcesOpen: true,
-  pendingPrompt: null,
-  draft: null,
-};
 
 /**
  * View registry (populated by view modules)
@@ -38,7 +26,7 @@ export const Views = {};
 
 /**
  * Shared helper namespace reused by the app shell.
- * This keeps one source of truth for filtering, formatting, and chart cleanup
+ * This keeps one source of truth for filtering, formatting,
  * without maintaining parallel wrapper methods.
  */
 export const UI = {
@@ -53,8 +41,8 @@ export const UI = {
   remainingMinutes,
   state: UIState,
   draft: null,
-  charts,
-  killCharts,
 };
+
+export { UIState };
 
 export default UIState;

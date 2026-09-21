@@ -82,7 +82,7 @@ export function lessonModal(lessonId) {
           );
         Store.saveNow();
         closeFn();
-        Router.render();
+        Router.scheduleRender();
         UI.toastSaved();
       });
       const del = q("#lsDel", m);
@@ -93,7 +93,7 @@ export function lessonModal(lessonId) {
           });
           Store.saveNow();
           closeFn();
-          Router.render();
+          Router.scheduleRender();
           toast("Topic removed.", "ok");
         });
     },

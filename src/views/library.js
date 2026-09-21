@@ -12,11 +12,6 @@ export function library() {
     -1,
   );
   const usage = Store.usage();
-  const libs = {
-    pdf: !!window.pdfjsLib,
-    mammoth: !!window.mammoth,
-    chart: !!window.Chart,
-  };
   const KIND_LABEL = {
     syllabus: "Syllabus",
     notes: "Lecture notes",
@@ -31,17 +26,6 @@ export function library() {
     '<button class="btn primary" data-act="go-import">Add documents</button>',
   );
 
-  if (!libs.pdf || !libs.mammoth) {
-    h +=
-      '<div class="notice warn mb"><div>' +
-      "Some document engines did not load" +
-      (navigator.onLine ? "" : " (you appear to be offline)") +
-      ". PDF: " +
-      (libs.pdf ? "ready" : "unavailable") +
-      ' <i class="msep"></i> Word: ' +
-      (libs.mammoth ? "ready" : "unavailable") +
-      ". Plain text and pasted text always work.</div></div>";
-  }
   if (location.protocol === "file:") {
     h +=
       '<div class="notice info mb"><div>You are opening this file directly from disk. Word, text and paste imports work here; PDF parsing needs a local server such as <code>npx --yes serve .</code> because browsers block PDF workers on <code>file://</code>.</div></div>';

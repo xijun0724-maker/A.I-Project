@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 vi.mock("../../src/core/router.js", () => ({
-  Router: { render: vi.fn() },
+  Router: { render: vi.fn(), scheduleRender: vi.fn() },
 }));
 
 import { Store } from "../../src/core/store.js";

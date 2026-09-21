@@ -21,7 +21,7 @@ export function toggleTask(id) {
   }
   Tasks.recompute(ev);
   Store.saveNow();
-  Router.render();
+  Router.scheduleRender();
 }
 
 export function toggleSubtask(eventId, subId) {
@@ -32,7 +32,7 @@ export function toggleSubtask(eventId, subId) {
   sub.done = !sub.done;
   Tasks.recompute(ev);
   Store.saveNow();
-  Router.render();
+  Router.scheduleRender();
 }
 
 export function toggleReading(id) {
@@ -40,5 +40,5 @@ export function toggleReading(id) {
   if (!r) return;
   r.status = r.status === "done" ? "required" : "done";
   Store.saveNow();
-  Router.render();
+  Router.scheduleRender();
 }

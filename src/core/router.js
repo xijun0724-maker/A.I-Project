@@ -5,7 +5,6 @@
 
 import { Store } from "./store.js";
 import { UI, Views, UIState } from "./state.js";
-import { Tasks } from "../domain/tasks.js";
 import { Coach } from "../domain/coach.js";
 import { q } from "../utils/dom.js";
 import { esc } from "../utils/helpers.js";
@@ -17,6 +16,20 @@ import { fmtDate } from "../utils/date.js";
 const viewDefs = {};
 
 /**
+ * Render coalescing — batches multiple render() calls into one rAF
+ */
+let _renderPending = false;
+
+function scheduleRender() {
+  if (_renderPending) return;
+  _renderPending = true;
+  requestAnimationFrame(function () {
+    _renderPending = false;
+    render();
+  });
+}
+
+/**
  * Navigation groups for sidebar
  */
 const navGroups = [
@@ -24,44 +37,12 @@ const navGroups = [
     target: "#navMain",
     items: [
       { id: "dashboard", label: "Dashboard", icon: "dashboard" },
-      {
-        id: "tasks",
-        label: "Tasks",
-        icon: "tasks",
-        count: () => Store.db.events.filter(Tasks.isOpen).length,
-      },
-      {
-        id: "planner",
-        label: "Planner",
-        icon: "planner",
-        count: () =>
-          (Store.db.plan || []).filter((p) => !p.done).length || null,
-      },
-    ],
-  },
-  {
-    target: "#navStudy",
-    items: [
-      { id: "assistant", label: "AI tutor", icon: "assistant" },
-      {
-        id: "roadmap",
-        label: "Roadmap",
-        icon: "roadmap",
-        count: () => Store.db.lessons.length,
-      },
-      {
-        id: "library",
-        label: "Library",
-        icon: "library",
-        count: () => Store.db.documents.length,
-      },
-      {
-        id: "courses",
-        label: "Courses",
-        icon: "courses",
-        count: () => Store.db.courses.length,
-      },
-      { id: "settings", label: "Settings", icon: "settings" },
+      { id: "tasks", label: "Tasks", icon: "tasks" },
+      { id: "planner", label: "Planner", icon: "planner" },
+      { id: "roadmap", label: "Roadmap", icon: "roadmap" },
+      { id: "library", label: "Library", icon: "library" },
+      { id: "courses", label: "Courses", icon: "courses" },
+      { id: "assistant", label: "Chat", icon: "assistant" },
     ],
   },
 ];
@@ -181,7 +162,6 @@ function notFoundView() {
  * Main render function
  */
 function render() {
-  UI.killCharts();
   const defaultView = Store.db.settings.defaultView || "dashboard";
   UIState.view = viewDefs[UIState.view]
     ? UIState.view
@@ -211,6 +191,9 @@ function render() {
   }
   root.innerHTML = html;
   document.title = "Journey A.I - " + def.title;
+
+  // Focus management: move focus to new content for keyboard/SR users
+  root.focus({ preventScroll: true });
 
   const srStatus = q("#srStatus");
   if (srStatus) srStatus.textContent = def.title;
@@ -284,6 +267,7 @@ export const Router = {
   renderNav,
   syncChrome,
   render,
+  scheduleRender,
   navigate,
   init,
 };

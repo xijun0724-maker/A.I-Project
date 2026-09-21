@@ -15,7 +15,7 @@ import { minutesToHM } from "../../utils/helpers.js";
 export function generatePlan() {
   const meta = Planner.generate({ courseId: UIState.courseId });
   Store.saveNow();
-  Router.render();
+  Router.scheduleRender();
   if (!meta.totalMinutes && !meta.unscheduled.length) {
     toast(
       "No open tasks are available to schedule. Add a syllabus or task first.",
@@ -46,13 +46,13 @@ export function clearPlan() {
     Store.db.plan = [];
     Store.db.planMeta = null;
     Store.saveNow();
-    Router.render();
+    Router.scheduleRender();
   });
 }
 
 export function togglePlanItem(id) {
   if (!Planner.toggle(id)) return;
-  Router.render();
+  Router.scheduleRender();
 }
 
 export function resetData() {
@@ -111,6 +111,6 @@ export function reindexFn() {
   toast("Rebuilding retrieval index...", "info");
   RAG.reindexAll();
   Store.saveNow();
-  Router.render();
+  Router.scheduleRender();
   toast("Index rebuilt.", "ok");
 }

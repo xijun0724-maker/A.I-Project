@@ -37,7 +37,6 @@ export default [
         // CDN UMD globals
         pdfjsLib: "readonly",
         mammoth: "readonly",
-        Chart: "readonly",
       },
     },
     rules: {

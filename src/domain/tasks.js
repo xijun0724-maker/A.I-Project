@@ -119,7 +119,7 @@ export function reason(e) {
   if (e.due) {
     const n = daysUntil(e.due);
     if (n === null) parts.push("no deadline set");
-    else if (n <= 0) parts.push("it is overdue");
+    else if (n < 0) parts.push("it is overdue");
     else if (n === 0) parts.push("it is due today");
     else if (n === 1) parts.push("it is due tomorrow");
     else if (n <= 7) parts.push("it is due within the week");

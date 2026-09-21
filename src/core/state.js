@@ -3,7 +3,19 @@
  * Centralized state for UI, views, and application context.
  */
 
-import { Shared } from "../views/shared.js";
+import {
+  courses,
+  courseIds,
+  inScope,
+  events,
+  lessons,
+  readings,
+  docs,
+  eventProgress,
+  remainingMinutes,
+  charts,
+  killCharts,
+} from "./scope.js";
 
 /**
  * Application UI state
@@ -29,13 +41,20 @@ export const Views = {};
  * This keeps one source of truth for filtering, formatting, and chart cleanup
  * without maintaining parallel wrapper methods.
  */
-export const UI = Object.assign({}, Shared, {
+export const UI = {
+  courses,
+  courseIds,
+  inScope,
+  events,
+  lessons,
+  readings,
+  docs,
+  eventProgress,
+  remainingMinutes,
   state: UIState,
   draft: null,
-  charts: Shared.charts,
-  killCharts() {
-    Shared.killCharts();
-  },
-});
+  charts,
+  killCharts,
+};
 
 export default UIState;

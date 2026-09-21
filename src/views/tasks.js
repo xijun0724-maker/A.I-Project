@@ -220,7 +220,7 @@ export function tasks() {
   let h = pageHead(
     "Tasks",
     "Every assignment broken into checkable subtasks, ranked by deadline, weighting and remaining effort.",
-    '<select id="taskSort" style="width:auto"><option value="priority"' +
+    '<select id="taskSort" aria-label="Sort tasks" style="width:auto"><option value="priority"' +
       (sort === "priority" ? " selected" : "") +
       ">Sort: priority</option>" +
       '<option value="due"' +

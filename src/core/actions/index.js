@@ -142,7 +142,7 @@ function act(action, el) {
     const ev = Store.db.events.find((e) => e.id === id);
     if (ev)
       requestAnimationFrame(() =>
-        sendChat('Help me understand "' + ev.title + '"'),
+        sendChat('Help me understand "' + String(ev.title || "").replace(/["'`]/g, "") + '"'),
       );
     return;
   }

@@ -65,9 +65,17 @@ export function toggleLesson(id) {
 }
 
 export function clearChat() {
-  Store.db.chat = [];
-  Store.saveNow();
-  Router.render();
+  confirm("Clear all chat messages? This cannot be undone.", {
+    title: "Clear chat",
+    ok: "Clear",
+    danger: true,
+  }).then((yes) => {
+    if (!yes) return;
+    Store.db.chat = [];
+    Store.saveNow();
+    Router.render();
+    toast("Chat cleared.", "ok");
+  });
 }
 
 export { courseModal, eventModal, lessonModal, docModal, readingModal };

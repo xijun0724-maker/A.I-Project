@@ -33,12 +33,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/journey-ai/journey-ai.git"
+    "url": "https://github.com/xijun0724-maker/A.I-Project.git"
   },
   "bugs": {
-    "url": "https://github.com/journey-ai/journey-ai/issues"
+    "url": "https://github.com/xijun0724-maker/A.I-Project/issues"
   },
-  "homepage": "https://github.com/journey-ai/journey-ai#readme",
+  "homepage": "https://github.com/xijun0724-maker/A.I-Project#readme",
   "engines": {
     "node": ">=18"
   },

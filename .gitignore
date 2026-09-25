@@ -5,6 +5,10 @@ node_modules/
 dist/
 build/
 
+# Test output (npm run test:coverage writes generated HTML dumps of every
+# source file here; it must never be committed)
+coverage/
+
 # Temporary files
 .tmp-*
 .tmp-chrome-profile/

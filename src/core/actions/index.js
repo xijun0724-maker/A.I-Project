@@ -66,6 +66,7 @@ const DIRECT_ACTIONS = [
   "task-ask",
   "cal-prev",
   "cal-next",
+  "cal-today",
   "cal-day-view",
   "cal-day-new",
 ];
@@ -239,6 +240,10 @@ function act(action, el) {
   }
   if (action === "cal-next") {
     import("../../views/calendar.js").then((m) => m.stepCalendarMonth(1));
+    return;
+  }
+  if (action === "cal-today") {
+    import("../../views/calendar.js").then((m) => m.jumpToToday());
     return;
   }
   if (action === "cal-day-view") {

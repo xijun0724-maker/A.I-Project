@@ -3,6 +3,7 @@
  */
 
 import { Store } from "../../core/store.js";
+import { KIND_LABEL } from "../../config/constants.js";
 import { esc } from "../../utils/helpers.js";
 import { fmtDate } from "../../utils/date.js";
 import { q } from "../../utils/dom.js";
@@ -11,7 +12,6 @@ import { modal } from "../../utils/feedback.js";
 export function docModal(docId) {
   const d = Store.doc(docId);
   if (!d) return;
-  const KIND_LABEL = (window.Extract && window.Extract.KIND_LABEL) || {};
   const body =
     '<div class="row tiny muted mb"><span>' +
     esc(KIND_LABEL[d.kind] || d.kind) +
@@ -29,10 +29,10 @@ export function docModal(docId) {
     "</span></div>" +
     '<div class="row mb"><input id="docFind" placeholder="Find in document…" style="max-width:240px">' +
     '<button class="btn sm" data-act="doc-reanalyse" data-id="' +
-    d.id +
+    esc(d.id) +
     '">Re-analyse as course material</button>' +
     '<button class="btn sm" data-act="doc-ask" data-id="' +
-    d.id +
+    esc(d.id) +
     '">Ask about this</button></div>' +
     (d.tables && d.tables.length
       ? "<h4>Extracted tables (" +
@@ -83,7 +83,7 @@ export function docModal(docId) {
     body: body,
     footer:
       '<button class="btn danger" data-act="del-doc" data-id="' +
-      d.id +
+      esc(d.id) +
       '">Delete document</button>' +
       '<span class="spacer"></span><button class="btn" data-close="1">Close</button>',
     onMount: function (m) {

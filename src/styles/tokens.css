@@ -1,0 +1,232 @@
+/* ================================================================ JOURNEY A.I — Design Tokens Base tokens and Deep Navy theme overrides ================================================================ */ /* Light mode (base tokens) */ :root{
+  /* Zinc-neutral palette */
+  --paper: #f8f9fa;
+  --paper-2: #fafbfc;
+  --sheet: #ffffff;
+  --sheet-solid: #ffffff;
+  --sheet-elevated: #ffffff;
+  --bg-sidebar: #ffffff;
+  --rule: rgba(24, 24, 27, 0.08);
+  --rule-2: rgba(24, 24, 27, 0.05);
+  --rule-accent: rgba(91, 141, 239, 0.3);
+  --rule-accent-glow: 0 0 12px rgba(91, 141, 239, 0.15);
+  --ink: #18181b;
+  --ink-2: #52525b;
+  --ink-3: #5f5f66;
+
+  /* Accent colors - WCAG AA compliant */
+  --pen: #5b8def;
+  --pen-soft: rgba(91, 141, 239, 0.08);
+  --error: #dc2626;
+  --error-soft: rgba(220, 38, 38, 0.08);
+  --ok: #16a34a;
+  --ok-soft: rgba(22, 163, 74, 0.08);
+  --info: #5b8def;
+  --info-soft: rgba(91, 141, 239, 0.08);
+  --warn: #a16207;
+  --warn-soft: rgba(161, 98, 7, 0.08);
+
+  /* Primary */
+  --primary: #18181b;
+  --primary-focus: #3568c4;
+  --primary-on-dark: #5b8def;
+  --on-primary: #ffffff;
+
+  /* Blue opacity scale */
+  --blue-3: rgba(91, 141, 239, 0.03);
+  --blue-4: rgba(91, 141, 239, 0.04);
+  --blue-5: rgba(91, 141, 239, 0.05);
+  --blue-6: rgba(91, 141, 239, 0.06);
+  --blue-8: rgba(91, 141, 239, 0.08);
+  --blue-10: rgba(91, 141, 239, 0.1);
+  --blue-12: rgba(91, 141, 239, 0.12);
+  --blue-15: rgba(91, 141, 239, 0.15);
+  --blue-20: rgba(91, 141, 239, 0.2);
+  --blue-25: rgba(91, 141, 239, 0.25);
+  --blue-30: rgba(91, 141, 239, 0.3);
+  --blue-35: rgba(91, 141, 239, 0.35);
+  --blue-40: rgba(91, 141, 239, 0.4);
+  --blue-50: rgba(91, 141, 239, 0.5);
+
+  /* Zinc opacity scale */
+  --navy-4: rgba(24, 24, 27, 0.04);
+  --navy-5: rgba(24, 24, 27, 0.05);
+  --navy-8: rgba(24, 24, 27, 0.08);
+  --navy-15: rgba(24, 24, 27, 0.15);
+  --navy-18: rgba(24, 24, 27, 0.18);
+  --navy-20: rgba(24, 24, 27, 0.2);
+  --navy-25: rgba(24, 24, 27, 0.25);
+
+  /* Slate opacity scale */
+  --slate-5: rgba(113, 113, 122, 0.05);
+  --slate-6: rgba(113, 113, 122, 0.06);
+  --slate-8: rgba(113, 113, 122, 0.08);
+  --slate-12: rgba(113, 113, 122, 0.12);
+
+  /* Pill surfaces (chat composer) */
+  --bg-pill: #ffffff;
+  --bg-pill-border: rgba(24, 24, 27, 0.1);
+
+  /* Radii */
+  --rounded-none: 0px;
+  --rounded-xs: 6px;
+  --rounded-sm: 8px;
+  --rounded-md: 12px;
+  --rounded-lg: 16px;
+  --rounded-xl: 20px;
+  --rounded-2xl: 24px;
+  --rounded-pill: 9999px;
+  --rounded-full: 9999px;
+
+  /* Shadows */
+  --shadow-product: 0 1px 2px rgba(24, 24, 27, 0.04), 0 4px 12px rgba(24, 24, 27, 0.06);
+  --shadow-card: 0 1px 2px rgba(24, 24, 27, 0.03), 0 2px 8px rgba(24, 24, 27, 0.04);
+  --shadow-elevated: 0 2px 4px rgba(24, 24, 27, 0.04), 0 8px 24px rgba(24, 24, 27, 0.08);
+  --glow-accent: 0 0 16px rgba(91, 141, 239, 0.15);
+
+  /* Layout */
+  --measure: 68ch;
+  --sidebar-w: 248px;
+
+  /* Spacing - 8px grid */
+  --sp-xxs: 4px;
+  --sp-xs: 8px;
+  --sp-sm: 12px;
+  --sp-md: 16px;
+  --sp-lg: 24px;
+  --sp-xl: 32px;
+  --sp-xxl: 48px;
+  --sp-section: 80px;
+
+  /* Typography */
+  --font-display: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-body: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --type-hero: 44px;
+  --type-display: 32px;
+  --type-lead: 20px;
+  --type-body: 15px;
+  --type-caption: 13px;
+  --type-fine: 12px;
+  --type-micro: 11px;
+  --lh-tight: 1.2;
+  --lh-body: 1.5;
+  --lh-airy: 1.65;
+  --ls-tight: -0.02em;
+  --ls-body: -0.01em;
+  --ls-wide: 0.04em;
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+  --duration-reveal: 600ms;
+
+  /* Linear compact-density row height */
+  --row-h: 36px;
+  --row-h-sm: 30px;
+  --row-h-lg: 44px;
+
+  /* Divider */
+  --divider: rgba(24, 24, 27, 0.05);
+
+  /* Focus ring */
+  --ring-focus: var(--primary-focus);
+  --ring-offset: 2px;
+
+  /* Glass surface (composer pill, modals) */
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: rgba(24, 24, 27, 0.1);
+  --glass-blur: 12px;
+}/* Deep Navy Dark Mode Aesthetic (Default App Experience) */ [data-theme="dark"]{
+  /* Deep navy palette: #0a0f1c canvas, #111827 surface, #151c28 bento cards */
+  --paper: #0a0f1c;
+  --paper-2: #111827;
+  --sheet: rgba(21, 28, 40, 0.82);
+  --sheet-solid: #151c28;
+  --sheet-elevated: rgba(30, 41, 59, 0.85);
+  --bg-sidebar: #070b14;
+
+  /* Subtle slate borders */
+  --rule: rgba(30, 41, 59, 0.65);
+  --rule-2: rgba(30, 41, 59, 0.4);
+  --rule-accent: rgba(56, 189, 248, 0.35);
+  --rule-accent-glow: 0 0 16px rgba(56, 189, 248, 0.18);
+
+  /* High contrast headers & cool gray text (all meet WCAG AA >= 4.5:1) */
+  --ink: #f8fafc;
+  --ink-2: #94a3b8;
+  --ink-3: #7d8399;
+
+  /* Glowing cyan / sky accents */
+  --pen: #38bdf8;
+  --pen-soft: rgba(56, 189, 248, 0.12);
+  --error: #f87171;
+  --error-soft: rgba(248, 113, 113, 0.14);
+  --ok: #34d399;
+  --ok-soft: rgba(52, 211, 153, 0.14);
+  --info: #38bdf8;
+  --info-soft: rgba(56, 189, 248, 0.14);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.14);
+
+  /* Primary buttons */
+  --primary: #38bdf8;
+  --primary-focus: #0ea5e9;
+  --primary-on-dark: #38bdf8;
+  --on-primary: #0a0f1c;
+
+  /* Sky / cyan opacity scale */
+  --blue-3: rgba(56, 189, 248, 0.03);
+  --blue-4: rgba(56, 189, 248, 0.04);
+  --blue-5: rgba(56, 189, 248, 0.05);
+  --blue-6: rgba(56, 189, 248, 0.06);
+  --blue-8: rgba(56, 189, 248, 0.08);
+  --blue-10: rgba(56, 189, 248, 0.1);
+  --blue-12: rgba(56, 189, 248, 0.12);
+  --blue-15: rgba(56, 189, 248, 0.15);
+  --blue-20: rgba(56, 189, 248, 0.2);
+  --blue-25: rgba(56, 189, 248, 0.25);
+  --blue-30: rgba(56, 189, 248, 0.3);
+  --blue-35: rgba(56, 189, 248, 0.35);
+  --blue-40: rgba(56, 189, 248, 0.4);
+  --blue-50: rgba(56, 189, 248, 0.5);
+
+  /* Slate opacity scale */
+  --navy-4: rgba(30, 41, 59, 0.3);
+  --navy-5: rgba(30, 41, 59, 0.4);
+  --navy-8: rgba(30, 41, 59, 0.6);
+  --navy-15: rgba(30, 41, 59, 0.8);
+  --navy-18: rgba(30, 41, 59, 0.9);
+  --navy-20: rgba(30, 41, 59, 0.95);
+  --navy-25: #1e293b;
+
+  --slate-5: rgba(148, 163, 184, 0.05);
+  --slate-6: rgba(148, 163, 184, 0.06);
+  --slate-8: rgba(148, 163, 184, 0.08);
+  --slate-12: rgba(148, 163, 184, 0.12);
+
+  /* Pill surfaces (chat composer / search) */
+  --bg-pill: rgba(21, 28, 40, 0.9);
+  --bg-pill-border: rgba(56, 189, 248, 0.2);
+
+  /* Shadows & glowing accents */
+  --shadow-product: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.04);
+  --shadow-elevated: 0 12px 30px -4px rgba(0, 0, 0, 0.65), 0 0 20px rgba(56, 189, 248, 0.12);
+  --glow-accent: 0 0 24px rgba(56, 189, 248, 0.2);
+
+  /* Divider */
+  --divider: rgba(30, 41, 59, 0.6);
+
+  /* Focus ring */
+  --ring-focus: var(--pen);
+
+  /* Glass surface */
+  --glass-bg: rgba(21, 28, 40, 0.85);
+  --glass-border: rgba(56, 189, 248, 0.18);
+  --glass-blur: 16px;
+}

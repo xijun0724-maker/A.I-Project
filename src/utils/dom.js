@@ -3,8 +3,6 @@
  * Query selectors, downloads, and DOM manipulation helpers.
  */
 
-import { esc } from "./helpers.js";
-
 /**
  * Query selector shorthand
  * @param {string} sel - CSS selector
@@ -12,7 +10,8 @@ import { esc } from "./helpers.js";
  * @returns {Element|null} Found element
  */
 export function q(sel, root) {
-  return (root || document).querySelector(sel);
+  const doc = root || (typeof document !== "undefined" ? document : null);
+  return doc ? doc.querySelector(sel) : null;
 }
 
 /**
@@ -22,26 +21,8 @@ export function q(sel, root) {
  * @returns {Element[]} Array of found elements
  */
 export function qa(sel, root) {
-  return Array.prototype.slice.call((root || document).querySelectorAll(sel));
-}
-
-/**
- * Trigger file download
- * @param {string} name - Filename
- * @param {string} text - File content
- * @param {string} mime - MIME type
- */
-export function download(name, text, mime) {
-  const blob = new Blob([text], { type: mime || "text/plain;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => {
-    URL.revokeObjectURL(a.href);
-    a.remove();
-  }, 1000);
+  const doc = root || (typeof document !== "undefined" ? document : null);
+  return doc ? Array.prototype.slice.call(doc.querySelectorAll(sel)) : [];
 }
 
 /**
@@ -56,21 +37,6 @@ export function readAsText(file) {
       reject(new Error("The browser could not read this file."));
     r.onload = () => resolve(String(r.result || ""));
     r.readAsText(file);
-  });
-}
-
-/**
- * Read file as ArrayBuffer
- * @param {File} file - File to read
- * @returns {Promise<ArrayBuffer>} File content
- */
-export function readAsBuffer(file) {
-  return new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onerror = () =>
-      reject(new Error("The browser could not read this file."));
-    r.onload = () => resolve(r.result);
-    r.readAsArrayBuffer(file);
   });
 }
 
@@ -93,33 +59,61 @@ export function ext(name) {
 export function toast(msg, kind, title) {
   const host = q("#toasts");
   if (!host) return;
+  const k = kind || "info";
   const el = document.createElement("div");
-  el.className = "toast " + (kind || "info");
-  el.setAttribute("role", kind === "bad" ? "alert" : "status");
-  el.innerHTML =
-    (title ? '<div class="tt">' + esc(title) + "</div>" : "") +
-    "<div>" +
-    esc(msg) +
-    "</div>";
-  host.appendChild(el);
-  const timeout = kind === "bad" ? 6500 : 4200;
-  setTimeout(() => {
+  el.className = "toast-item " + k;
+  el.setAttribute("role", k === "bad" ? "alert" : "status");
+  const content = document.createElement("div");
+  content.className = "content";
+  if (title) {
+    const t = document.createElement("div");
+    t.className = "title";
+    t.textContent = String(title);
+    content.appendChild(t);
+  }
+  const m = document.createElement("div");
+  m.className = "message";
+  m.textContent = String(msg);
+  content.appendChild(m);
+  el.appendChild(content);
+
+  let timer = null;
+  function dismiss() {
+    if (timer) clearTimeout(timer);
     el.style.transition = "opacity .25s, transform .25s";
     el.style.opacity = "0";
     el.style.transform = "translateX(18px)";
     setTimeout(() => el.remove(), 260);
-  }, timeout);
+  }
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "close";
+  closeBtn.setAttribute("aria-label", "Dismiss notification");
+  closeBtn.textContent = "\u00d7";
+  closeBtn.addEventListener("click", dismiss);
+  el.appendChild(closeBtn);
+
+  host.appendChild(el);
+  const timeout = k === "bad" ? 6500 : 4200;
+  timer = setTimeout(dismiss, timeout);
+}
+
+/**
+ * Confirmation toast for a completed save action
+ * @param {string} msg - Message (defaults to "Saved.")
+ */
+export function toastSaved(msg) {
+  toast(msg || "Saved.", "ok");
 }
 
 // Export all functions as a namespace for backward compatibility
 export const DOM = {
   q,
   qa,
-  download,
   readAsText,
-  readAsBuffer,
   ext,
   toast,
+  toastSaved,
 };
 
 export default DOM;

@@ -157,6 +157,28 @@ export function fmtDate(isoStr, withTime = false) {
 }
 
 /**
+ * Format time from ISO string (e.g., "11:59 PM" or "23:59")
+ * @param {string} isoStr - ISO date string
+ * @param {string} timeFormat - "12h" or "24h"
+ * @returns {string} Formatted time or empty string if no time
+ */
+export function fmtTime(isoStr, timeFormat = "12h") {
+  if (!isoStr || typeof isoStr !== "string") return "";
+  const tIdx = isoStr.indexOf("T");
+  if (tIdx === -1 || isoStr.length < tIdx + 6) return "";
+  const rawTime = isoStr.slice(tIdx + 1, tIdx + 6);
+  if (!rawTime.includes(":")) return "";
+  if (timeFormat === "24h") return rawTime;
+  const parts = rawTime.split(":");
+  const hour = parseInt(parts[0], 10);
+  const min = parts[1];
+  if (isNaN(hour)) return rawTime;
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const h12 = hour % 12 || 12;
+  return `${h12}:${min} ${ampm}`;
+}
+
+/**
  * Format date as day of week (e.g., "Monday, Sep 15")
  * @param {string} iso - ISO date string
  * @returns {string} Formatted day string
@@ -296,26 +318,3 @@ export function parseDate(text, yearHint) {
     return d;
   }
 }
-
-// Export all functions as a namespace for backward compatibility
-export const DateUtils = {
-  DAY,
-  MONTHS,
-  iso,
-  dateOnly,
-  fromIso,
-  startOfDay,
-  addDays,
-  daysUntil,
-  fmtDate,
-  fmtDay,
-  rel,
-  mondayOf,
-  weekKey,
-  parseTime,
-  parseDate,
-  MONTH_FIRST_G,
-  DAY_FIRST_G,
-};
-
-export default DateUtils;

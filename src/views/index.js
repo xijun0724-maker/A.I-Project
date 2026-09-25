@@ -1,8 +1,9 @@
 // Re-export all view modules
-export { dashboard, dashboardView } from "./dashboard.js";
+export { dashboard, dashboardView, afterDashboard } from "./dashboard.js";
+export { calendarView, afterCalendar, calendarViewDef, configureAcademicCalendar, configureCalendar, getCalendarConfig, academicCalendarModal } from "./calendar.js";
 export { tasks, afterTasks, tasksView } from "./tasks.js";
 export { roadmap, roadmapView } from "./roadmap.js";
-export { planner, plannerView } from "./planner.js";
+export { planner, afterPlanner, plannerView } from "./planner.js";
 export {
   assistant,
   afterAssistant,
@@ -30,7 +31,6 @@ export {
   eventModal,
   readingModal,
 } from "./modals/index.js";
-export { Shared } from "./shared.js";
 
 // Register all views with the Router, and wire shared Views helpers
 import { Views } from "../core/state.js";
@@ -43,6 +43,7 @@ import { settingsView } from "./settings.js";
 import { importViewDef, importBind, importReviewBind } from "./import.js";
 import { coursesView } from "./courses.js";
 import { libraryView } from "./library.js";
+import { calendarViewDef } from "./calendar.js";
 import {
   helpModal,
   docModal,
@@ -56,10 +57,12 @@ export function registerAll(Router) {
   Router.registerView("dashboard", {
     title: "Dashboard",
     fn: dashboardView.fn,
+    after: dashboardView.after,
   });
   Router.registerView("roadmap", {
-    title: "Lesson roadmap",
+    title: "Roadmap",
     fn: roadmapView.fn,
+    after: roadmapView.after,
   });
   Router.registerView("tasks", {
     title: "Tasks",
@@ -69,14 +72,28 @@ export function registerAll(Router) {
   Router.registerView("planner", {
     title: "Study planner",
     fn: plannerView.fn,
+    after: plannerView.after,
   });
   Router.registerView("assistant", {
     title: "AI study assistant",
     fn: assistantView.fn,
     after: assistantView.after,
   });
-  Router.registerView("library", { title: "Library", fn: libraryView.fn });
-  Router.registerView("courses", { title: "Courses", fn: coursesView.fn });
+  Router.registerView("library", {
+    title: "Library",
+    fn: libraryView.fn,
+    after: libraryView.after,
+  });
+  Router.registerView("courses", {
+    title: "Roadmap",
+    fn: coursesView.fn,
+    after: coursesView.after,
+  });
+  Router.registerView("calendar", {
+    title: "Calendar",
+    fn: calendarViewDef.fn,
+    after: calendarViewDef.after,
+  });
   Router.registerView("settings", {
     title: "Settings",
     fn: settingsView.fn,

@@ -246,3 +246,151 @@ describe("Planner.unit structure", () => {
     expect(Planner.units("c1")).toHaveLength(1);
   });
 });
+
+describe("Planner scheduler contract", () => {
+  /* Preview, commit and generate must all run the same scheduler, so the
+     blocks a student reviews are exactly the blocks that get stored. */
+  function seedWork() {
+    Store.db.settings.studyWeekday = 3;
+    Store.db.settings.studyWeekend = 3;
+    Store.db.events = [
+      {
+        id: "e-contract",
+        title: "Research essay",
+        type: "assignment",
+        status: "todo",
+        courseId: null,
+        due: new Date(Date.now() + 3 * 86400000).toISOString(),
+        subtasks: [
+          { id: "s-contract-1", title: "Outline", minutes: 60, done: false },
+          { id: "s-contract-2", title: "Draft", minutes: 90, done: false },
+        ],
+      },
+    ];
+  }
+
+  it("generateInteractive previews without touching the stored plan", () => {
+    seedWork();
+    Store.db.plan = [];
+    Store.db.planMeta = null;
+
+    const preview = Planner.generateInteractive({ weeks: 2 });
+
+    expect(preview.planItems.length).toBeGreaterThan(0);
+    expect(preview.days.length).toBe(14);
+    expect(preview.meta.weeks).toBe(2);
+    expect(Store.db.plan).toEqual([]);
+    expect(Store.db.planMeta).toBeNull();
+  });
+
+  it("commit stores exactly the previewed blocks", () => {
+    seedWork();
+    const preview = Planner.generateInteractive({ weeks: 2 });
+
+    const meta = Planner.commit(preview);
+
+    expect(Store.db.plan).toHaveLength(preview.planItems.length);
+    expect(Store.db.plan.map((b) => b.label)).toEqual(
+      preview.planItems.map((b) => b.label),
+    );
+    expect(Store.db.plan.map((b) => b.minutes)).toEqual(
+      preview.planItems.map((b) => b.minutes),
+    );
+    expect(meta).toBe(Store.db.planMeta);
+    expect(meta.totalMinutes).toBe(preview.meta.totalMinutes);
+  });
+
+  it("generate produces the same schedule as the preview it wraps", () => {
+    seedWork();
+    const preview = Planner.generateInteractive({ weeks: 2 });
+    const previewShape = {
+      blocks: preview.planItems.length,
+      minutes: preview.meta.totalMinutes,
+      labels: preview.planItems.map((b) => b.label),
+    };
+
+    const meta = Planner.generate({ weeks: 2 });
+
+    expect(meta).toBe(Store.db.planMeta);
+    expect(Store.db.plan).toHaveLength(previewShape.blocks);
+    expect(meta.totalMinutes).toBe(previewShape.minutes);
+    expect(Store.db.plan.map((b) => b.label)).toEqual(previewShape.labels);
+    expect(Store.db.planMeta.unscheduled).toEqual(preview.meta.unscheduled);
+  });
+
+  function seedTwo() {
+    Store.db.settings.studyWeekday = 3;
+    Store.db.settings.studyWeekend = 3;
+    Store.db.events = [
+      {
+        id: "e-keep",
+        title: "Keep this",
+        type: "assignment",
+        status: "todo",
+        courseId: null,
+        due: new Date(Date.now() + 3 * 86400000).toISOString(),
+        subtasks: [{ id: "s-keep", title: "Draft", minutes: 60, done: false }],
+      },
+      {
+        id: "e-drop",
+        title: "Drop me",
+        type: "assignment",
+        status: "todo",
+        courseId: null,
+        due: new Date(Date.now() + 3 * 86400000).toISOString(),
+        subtasks: [
+          { id: "s-drop", title: "Outline", minutes: 60, done: false },
+        ],
+      },
+    ];
+  }
+
+  it("leaves an excluded event out of the work units", () => {
+    seedTwo();
+    const all = Planner.units("all").map((u) => u.eventId);
+    expect(all).toContain("e-keep");
+    expect(all).toContain("e-drop");
+
+    expect(Planner.units("all", ["e-drop"]).map((u) => u.eventId)).toEqual([
+      "e-keep",
+    ]);
+  });
+
+  it("re-schedules without the excluded task, records it, and writes nothing", () => {
+    seedTwo();
+    const preview = Planner.generateInteractive({
+      weeks: 2,
+      exclude: ["e-drop"],
+    });
+    expect(preview.planItems.length).toBeGreaterThan(0);
+    expect(preview.planItems.every((b) => b.eventId === "e-keep")).toBe(true);
+    expect(preview.meta.excluded).toEqual(["Drop me"]);
+    expect(Store.db.plan).toEqual([]);
+  });
+
+  it("schedules every task when nothing is excluded", () => {
+    seedTwo();
+    const preview = Planner.generateInteractive({ weeks: 2 });
+    expect(preview.meta.excluded).toEqual([]);
+    expect(preview.planItems.some((b) => b.eventId === "e-drop")).toBe(true);
+  });
+
+  it("ignores excluded ids that no longer exist", () => {
+    seedTwo();
+    const preview = Planner.generateInteractive({
+      weeks: 2,
+      exclude: ["ghost", ""],
+    });
+    expect(preview.meta.excluded).toEqual([]);
+    expect(preview.planItems.length).toBeGreaterThan(0);
+  });
+
+  it("commit tolerates an empty or missing result", () => {
+    Store.db.plan = [{ id: "stale" }];
+    Store.db.planMeta = { generatedAt: "stale" };
+
+    expect(Planner.commit(null)).toBeNull();
+    expect(Store.db.plan).toEqual([]);
+    expect(Store.db.planMeta).toBeNull();
+  });
+});

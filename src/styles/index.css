@@ -1,0 +1,40 @@
+/* ================================================================
+   JOURNEY A.I — Main Stylesheet Entry Point
+   Imports all modular CSS files
+
+   Canonical width breakpoints (enforced by tests/vitest/styles.test.js):
+     480  phone          640  large phone
+     768  tablet         960  small desktop / content grids
+     980  sidebar drawer boundary (paired with min-width 981; JS-coupled
+          via chrome.js DRAWER_QUERY — do not change one without the other)
+     1150 wide multi-column grids
+   Non-width queries (pointer, forced-colors, prefers-reduced-motion,
+   max-height) are feature/a11y gates and are not part of this scale.
+   ================================================================ */
+
+@import "./tokens.css";
+@import "./reset.css";
+@import "./layout.css";
+
+/* Components */
+@import "./components/card.css";
+@import "./components/grid.css";
+@import "./components/button.css";
+@import "./components/input.css";
+@import "./components/badge.css";
+@import "./components/progress.css";
+@import "./components/table.css";
+@import "./components/modal.css";
+
+/* Views */
+@import "./sidebar.css";
+@import "./chat.css";
+@import "./planner.css";
+@import "./roadmap.css";
+@import "./views/dashboard.css";
+@import "./views/tasks.css";
+@import "./views/courses.css";
+@import "./views/import.css";
+@import "./views/library.css";
+@import "./views/calendar.css";
+@import "./views/settings.css";

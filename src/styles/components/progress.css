@@ -1,0 +1,54 @@
+/* Progress component */ .bar{
+  height: 4px;
+  border-radius: var(--rounded-pill);
+  background: var(--navy-5);
+  overflow: hidden;
+}.bar i{
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--rounded-pill);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left center;
+  transition: transform var(--duration-slow) var(--ease-out-expo);
+}.bar.ok i{ background: var(--ok); }.bar.warn i{ background: var(--warn); }.bar.bad i{ background: var(--error); }.ring{
+  --p: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  background: conic-gradient(
+    var(--primary) calc(var(--p) * 1%),
+    var(--navy-5) 0
+  );
+}.ring span{
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--sheet);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}/* KPI component */ .kpi{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}.kpi .v{
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}.kpi .k{
+  font-size: 13px;
+  color: var(--ink-2);
+  font-weight: 500;
+}.kpi .d{
+  font-size: 12px;
+  color: var(--ink-3);
+}

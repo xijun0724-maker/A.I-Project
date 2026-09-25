@@ -6,7 +6,7 @@
 
 import { CFG } from "../config/constants.js";
 import { Store } from "../core/store.js";
-import { esc, clamp } from "./helpers.js";
+import { esc, clamp, safeColor } from "./helpers.js";
 import { daysUntil, fmtDate, rel } from "./date.js";
 
 /**
@@ -84,6 +84,31 @@ export function priBadge(label) {
 }
 
 /**
+ * Generate a to-do progress status badge HTML
+ * @param {Object} e - Event / task object
+ * @returns {string} HTML string
+ */
+export function statusBadge(e) {
+  if (!e) return "";
+  const isDone = e.status === "done";
+  if (isDone) {
+    return '<span class="todo-badge status-done" title="Status: Completed">Completed</span>';
+  }
+  if (e.status === "doing") {
+    const s = e.subtasks || [];
+    const done = s.filter((x) => x.done).length;
+    const pct = s.length ? Math.round((done / s.length) * 100) : 0;
+    const label = pct > 0 && pct < 100 ? "In progress · " + pct + "%" : "In progress";
+    return (
+      '<span class="todo-badge status-doing" title="Status: In progress">' +
+      esc(label) +
+      "</span>"
+    );
+  }
+  return '<span class="todo-badge status-todo" title="Status: Not started">Not started</span>';
+}
+
+/**
  * Generate an event status badge HTML
  * @param {Object} e - Event object
  * @returns {string} HTML string
@@ -126,7 +151,7 @@ export function courseChip(courseId) {
   if (!c) return "";
   return (
     '<span class="tag"><span class="dot" style="background:' +
-    c.color +
+    (safeColor(c.color) || "var(--primary)") +
     '"></span> ' +
     esc(c.code || c.title) +
     "</span>"
@@ -167,6 +192,35 @@ export function dueLabel(iso) {
  * @param {string} label - Stat label
  * @returns {string} HTML string
  */
+/**
+ * One-line provenance for a plan: who drafted it, from what, at what cost.
+ * Honest by construction - an offline draft never claims an AI wrote it.
+ *
+ * @param {object} [prov] - meta.provenance written by AI.studyPlanProposal
+ * @returns {string} Plain sentence ("") when there is no provenance to show
+ */
+export function planProvenance(prov) {
+  if (!prov) return "";
+  const ai = prov.mode === "ai";
+  const who = ai
+    ? "Drafted by the AI" + (prov.model ? " (" + prov.model + ")" : "")
+    : "Drafted by the built-in planner, not by an AI";
+  const tools = (prov.tools || []).filter(Boolean);
+  const read = tools.length
+    ? " after reading your term with " +
+      tools.length +
+      " tool" +
+      (tools.length === 1 ? "" : "s") +
+      " (" +
+      tools.join(", ") +
+      ")"
+    : "";
+  const calls = prov.calls
+    ? ", " + prov.calls + " model call" + (prov.calls === 1 ? "" : "s")
+    : "";
+  return who + read + calls + ".";
+}
+
 export function statBox(value, label, detail, tone) {
   const tones = {
     bad: "var(--error)",
@@ -213,16 +267,93 @@ export function tabBtn(id, label, active, viewName) {
   );
 }
 
-// Export as namespace for backward compatibility
-export const Format = {
-  bar,
-  ring,
-  empty,
-  priBadge,
-  eventBadge,
-  courseChip,
-  dueLabel,
-  statBox,
-  tabBtn,
-};
-export default Format;
+/* ── Sidebar Recents ───────────────────────────────────────────────
+   One implementation shared by the sidebar renderer and the chat search,
+   so both escape through esc() and both agree on what a row looks like. */
+
+const RECENT_MAX = 5;
+const RECENT_LABEL_CHARS = 28;
+
+/**
+ * Pick the most recent distinct prompts from a chat log, newest first.
+ * @param {Array} chats - Chat message list (Store.db.chat)
+ * @param {string} query - Optional filter; matched case-insensitively
+ * @param {number} limit - Max entries; 0 means no limit
+ * @returns {Array} Matching user messages, newest first
+ */
+export function recentPrompts(chats, query, limit) {
+  const max = limit == null ? RECENT_MAX : limit;
+  const needle = String(query == null ? "" : query).toLowerCase();
+  const out = [];
+  const seen = new Set();
+  const list = chats || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const msg = list[i];
+    if (!msg || msg.role !== "user") continue;
+    const content = String(msg.content == null ? "" : msg.content);
+    if (seen.has(content)) continue;
+    if (needle && content.toLowerCase().indexOf(needle) === -1) continue;
+    seen.add(content);
+    out.push(msg);
+    if (max > 0 && out.length >= max) break;
+  }
+  return out;
+}
+
+/**
+ * Build Recents row markup. Rows are plain text; the newest prompt is the
+ * conversation in progress, so it carries the active pill.
+ * @param {Array} prompts - Result of recentPrompts()
+ * @param {Object} opts - { activeFirst }
+ * @returns {string} HTML string
+ */
+export function recentsHTML(prompts, opts) {
+  const activeFirst = !opts || opts.activeFirst !== false;
+  return (prompts || [])
+    .map(function (m, i) {
+      const full = String(m.content == null ? "" : m.content);
+      const text =
+        full.length > RECENT_LABEL_CHARS
+          ? full.slice(0, RECENT_LABEL_CHARS) + "\u2026"
+          : full;
+      const active = activeFirst && i === 0;
+      return (
+        '<div class="recent-chat-item">' +
+        '<button class="recent-chat-link' +
+        (active ? " active" : "") +
+        '" data-act="chat-resend" data-q="' +
+        esc(full) +
+        '"' +
+        (active ? ' aria-current="true"' : "") +
+        ">" +
+        esc(text) +
+        "</button>" +
+        '<button class="recent-chat-remove" data-act="chat-remove-recent" data-q="' +
+        esc(full) +
+        '" aria-label="Remove">&times;</button>' +
+        "</div>"
+      );
+    })
+    .join("");
+}
+
+/**
+ * Render the Recents list into a container.
+ * @param {Element} list - Container element
+ * @param {Array} chats - Chat log
+ * @param {Object} opts - { query, limit, activeFirst, emptyLabel }
+ * @returns {number} Rows rendered
+ */
+export function renderRecents(list, chats, opts) {
+  if (!list) return 0;
+  const o = opts || {};
+  const prompts = recentPrompts(chats, o.query, o.limit);
+  if (!prompts.length) {
+    list.innerHTML = o.emptyLabel
+      ? '<div class="sb-section-label">' + esc(o.emptyLabel) + "</div>"
+      : "";
+    return 0;
+  }
+  list.innerHTML = recentsHTML(prompts, o);
+  return prompts.length;
+}

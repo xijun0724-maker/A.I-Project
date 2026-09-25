@@ -6,5 +6,8 @@ export { helpModal } from "./help.js";
 export { docModal } from "./doc.js";
 export { lessonModal } from "./lesson.js";
 export { courseModal } from "./course.js";
+export { courseImageModal } from "./course-image.js";
 export { eventModal } from "./event.js";
 export { readingModal } from "./reading.js";
+export { academicCalendarModal } from "./academic-calendar.js";
+export { calendarConfigModal } from "./calendar-config.js";

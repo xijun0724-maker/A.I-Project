@@ -1,19 +1,24 @@
+/**
+ * To-Do List View (Tasks)
+ * Minimalist ruled notepad checklist inspired by stationery design.
+ * Focuses purely on core functions: Add To-Do, Set Deadline, Set Priority.
+ * Eliminates subtask clutter and empty space with strict information hierarchy.
+ */
+
 import { Store } from "../core/store.js";
 import { UIState } from "../core/state.js";
 import { Router } from "../core/router.js";
 import { Tasks } from "../domain/tasks.js";
-import { esc, sortBy, minutesToHM } from "../utils/helpers.js";
-import { fmtDate, rel } from "../utils/date.js";
+import { esc, sortBy } from "../utils/helpers.js";
+import { fmtDate, fmtTime, rel, daysUntil } from "../utils/date.js";
 import { q } from "../utils/dom.js";
 import {
-  empty,
-  bar,
-  eventBadge,
   priBadge,
-  eventProgress,
-  typeMeta,
+  statusBadge,
+  courseChip,
   tabBtn as _tabBtn,
   pageHead,
+  statBox,
 } from "./shared.js";
 
 function filterTasks(all, tab) {
@@ -21,7 +26,7 @@ function filterTasks(all, tab) {
   if (tab === "open") list = list.filter(Tasks.isOpen);
   else if (tab === "today")
     list = list.filter(function (e) {
-      return Tasks.isOpen(e) && Tasks.isDueSoon(e, 1);
+      return Tasks.isOpen(e) && Tasks.isDueSoon(e, 0);
     });
   else if (tab === "week")
     list = list.filter(function (e) {
@@ -52,155 +57,97 @@ function sortTasks(list, sort) {
     return sortBy(list, function (e) {
       return Store.courseName(e.courseId) + e.title;
     });
-  if (sort === "effort")
-    return sortBy(list, function (e) {
-      return -Tasks.remainingMinutes(e);
-    });
   return list;
 }
 
-function renderTaskCard(e) {
+function renderTodoRow(e) {
   const p = Tasks.priority(e);
-  const prog = eventProgress(e);
-  const tm = typeMeta(e.type);
-  const subs = e.subtasks || [];
-  const doneSubs = subs.filter(function (s) {
-    return s.done;
-  }).length;
-  const openEnded = subs.length > 1;
-  const isOverdue = e.status !== "done" && Tasks.isOverdue(e);
+  const isDone = e.status === "done";
+  const isOverdue = !isDone && Tasks.isOverdue(e);
+  const days = daysUntil(e.due);
+  const isDueToday = !isDone && days === 0;
+  const timeStr = fmtTime(e.due);
 
-  let h = '<div class="card' + (isOverdue ? " overdue" : "") + '">';
+  let h = '<div class="todo-item-row' + (isDone ? " is-done" : "") + (isOverdue ? " is-overdue" : "") + '">';
+
+  // 1. Square Checklist Checkbox (Clean notepad style)
   h +=
-    '<div class="row" style="align-items:flex-start">' +
-    '<button type="button" class="chk' +
-    (e.status === "done" ? " on" : "") +
+    '<button type="button" class="chk-square' +
+    (isDone ? " on" : "") +
     '" data-act="task-toggle" data-id="' +
-    e.id +
-    '"' +
-    ' title="Mark complete" role="checkbox" tabindex="0" aria-checked="' +
-    (e.status === "done" ? "true" : "false") +
+    esc(e.id) +
+    '" role="checkbox" tabindex="0" aria-checked="' +
+    (isDone ? "true" : "false") +
     '" aria-label="Mark ' +
     esc(e.title) +
-    ' complete">\u2713</button>' +
-    '<div class="flex-fill">' +
-    '<div class="row gap-xs">' +
-    '<strong style="font-size:14.5px' +
-    (e.status === "done" ? '" class="done-text' : "") +
+    (isDone ? " incomplete" : " complete") +
     '">' +
+    (isDone ? "&#10003;" : "") +
+    "</button>";
+
+  // 2. To-Do Content: Title & Metas (Clickable to edit)
+  h +=
+    '<div class="todo-item-content" data-act="event-edit" data-id="' +
+    esc(e.id) +
+    '" role="button" tabindex="0" title="Click to edit to-do" aria-label="Edit to-do: ' +
     esc(e.title) +
-    "</strong>" +
-    priBadge(p.label) +
-    eventBadge(e) +
-    "</div>" +
-    '<div class="tiny muted mt-s">' +
-    esc(tm.label) +
-    ' <i class="msep"></i> ' +
-    esc(Store.courseName(e.courseId)) +
-    (e.due
-      ? ' <i class="msep"></i> <span class="' +
-        (isOverdue ? "due-date" : "") +
-        '">due ' +
-        fmtDate(e.due, true) +
+    '">';
+  h += '<div class="todo-title-row">';
+  h += '<span class="todo-title' + (isDone ? " done-text" : "") + '">' + esc(e.title) + "</span>";
+  h += "</div>";
+
+  // 3. Compact Meta Badges (Priority, Progress, Deadline with Time, Course) — Zero Subtask Clutter
+  h += '<div class="todo-meta-row">';
+  h += priBadge(p.label);
+  h += statusBadge(e);
+
+  if (e.due) {
+    if (isOverdue) {
+      h +=
+        '<span class="todo-badge overdue" title="Past deadline">⚠️ Overdue (' +
+        rel(e.due) +
+        (timeStr ? " · " + timeStr : "") +
+        ")</span>";
+    } else if (isDueToday) {
+      h +=
+        '<span class="todo-badge today" title="Due today">📅 Today' +
+        (timeStr ? ", " + timeStr : "") +
+        "</span>";
+    } else {
+      h +=
+        '<span class="todo-badge due" title="Due date">📅 ' +
+        fmtDate(e.due, false) +
+        (timeStr ? ", " + timeStr : "") +
         " (" +
         rel(e.due) +
-        ")</span>"
-      : ' <i class="msep"></i> no deadline') +
-    (e.weight != null
-      ? ' <i class="msep"></i> ' + e.weight + "% of grade"
-      : "") +
-    "</div>" +
-    '<div class="tiny muted" style="margin-top:3px">' +
-    esc(Tasks.reason(e)) +
-    (e.confidence && e.confidence < 1
-      ? ' <i class="msep"></i> extracted with ' +
-        Math.round(e.confidence * 100) +
-        "% confidence"
-      : "") +
-    "</div></div>" +
-    '<div class="row nowrap">' +
-    '<button class="btn xs ghost" data-act="task-ask" data-id="' +
-    e.id +
-    '" title="Ask the tutor to help with this">Ask</button>' +
-    '<button class="btn xs ghost" data-act="event-edit" data-id="' +
-    e.id +
-    '">Edit</button>' +
-    "</div></div>";
+        ")</span>";
+    }
+  } else {
+    h += '<span class="todo-badge nodate">No deadline</span>';
+  }
 
+  if (e.courseId) {
+    h += '<span class="todo-course-chip">' + courseChip(e.courseId) + "</span>";
+  }
+
+  if (e.notes) {
+    h += '<span class="todo-notes-preview" title="' + esc(e.notes) + '">📝 ' + esc(e.notes) + "</span>";
+  }
+
+  h += "</div>"; // .todo-meta-row
+  h += "</div>"; // .todo-item-content
+
+  // 4. Quick Row Actions: Delete (Edit button removed, row is clickable to edit)
+  h += '<div class="todo-item-actions">';
   h +=
-    '<div class="row mt-s gap-sm">' +
-    '<div class="flex-fill">' +
-    bar(prog, prog === 100 ? "ok" : prog > 40 ? "" : "warn") +
-    "</div>" +
-    '<span class="tiny muted nowrap-cell">' +
-    prog +
-    '% <i class="msep"></i> ' +
-    doneSubs +
-    " of " +
-    subs.length +
-    ' subtasks <i class="msep"></i> ' +
-    minutesToHM(Tasks.remainingMinutes(e)) +
-    " left</span></div>";
-
-  if (e.notes)
-    h += '<div class="small muted mt-s clamp2">' + esc(e.notes) + "</div>";
-
-  if (subs.length) {
-    h +=
-      '<details class="acc mt"' +
-      (openEnded && prog > 0 && prog < 100 ? " open" : "") +
-      "><summary>Subtasks (" +
-      doneSubs +
-      "/" +
-      subs.length +
-      ')</summary><div class="sub mt-s">';
-    subs.forEach(function (s) {
-      h +=
-        '<div class="list-item flat">' +
-        '<button type="button" class="chk' +
-        (s.done ? " on" : "") +
-        '" data-act="sub-toggle" data-id="' +
-        e.id +
-        '" data-arg="' +
-        s.id +
-        '"' +
-        ' role="checkbox" tabindex="0" aria-checked="' +
-        (s.done ? "true" : "false") +
-        '" aria-label="Complete subtask ' +
-        esc(s.title) +
-        '">\u2713</button>' +
-        '<div class="body"><div class="small' +
-        (s.done ? " muted done-text" : "") +
-        '">' +
-        esc(s.title) +
-        "</div>" +
-        '<div class="tiny muted">' +
-        minutesToHM(s.minutes || 0) +
-        (s.due ? ' <i class="msep"></i> by ' + fmtDate(s.due) : "") +
-        "</div></div></div>";
-    });
-    h += "</div></details>";
-  }
-
-  const linked = Store.db.readings.filter(function (r) {
-    return (e.readingIds || []).indexOf(r.id) !== -1;
-  });
-  if (linked.length) {
-    h +=
-      '<div class="row mt-s tiny">' +
-      linked
-        .map(function (r) {
-          return (
-            '<span class="tag" title="Required reading">' +
-            esc(r.title) +
-            (r.pages ? " " + esc(r.pages) : "") +
-            "</span>"
-          );
-        })
-        .join("") +
-      "</div>";
-  }
+    '<button type="button" class="btn xs danger-ghost" data-act="task-delete" data-id="' +
+    esc(e.id) +
+    '" title="Delete to-do" aria-label="Delete to-do: ' +
+    esc(e.title) +
+    '">✕</button>';
   h += "</div>";
+
+  h += "</div>"; // .todo-item-row
   return h;
 }
 
@@ -216,73 +163,157 @@ export function tasks() {
   list = sortTasks(list, sort);
 
   const openCount = all.filter(Tasks.isOpen).length;
+  const doneCount = all.filter(function (e) {
+    return !Tasks.isOpen(e);
+  }).length;
   const overdue = all.filter(function (e) {
     return Tasks.isOpen(e) && Tasks.isOverdue(e);
   }).length;
+  const due7 = all.filter(function (e) {
+    return Tasks.isOpen(e) && Tasks.isDueSoon(e, 7);
+  }).length;
+  const totalCount = openCount + doneCount;
+  const compPct = totalCount ? Math.round((doneCount / totalCount) * 100) : 0;
 
+  // ── HIERARCHY LEVEL 1: EXECUTIVE PAGE HEAD ─────────────────────────────
   let h = pageHead(
-    "Tasks",
-    "Every assignment broken into checkable subtasks, ranked by deadline, weighting and remaining effort.",
-    '<select id="taskSort" aria-label="Sort tasks" style="width:auto"><option value="priority"' +
-      (sort === "priority" ? " selected" : "") +
-      ">Sort: priority</option>" +
-      '<option value="due"' +
-      (sort === "due" ? " selected" : "") +
-      ">Sort: due date</option>" +
-      '<option value="effort"' +
-      (sort === "effort" ? " selected" : "") +
-      ">Sort: effort left</option>" +
-      '<option value="course"' +
-      (sort === "course" ? " selected" : "") +
-      ">Sort: course</option></select>" +
-      '<button class="btn sm" data-act="plan-generate">Auto-schedule</button>' +
-      '<button class="btn primary sm" data-act="task-new">New task</button>',
+    "To-Do List",
+    "Keep track of coursework, upcoming deadlines, and study priorities in one place.",
   );
 
+  // ── HIERARCHY LEVEL 2: BALANCED 3-CARD KPI PULSE (ZERO EMPTY SPACE) ───
+  h += '<div class="library-stats-grid tasks-kpi-grid mb">';
+  h += statBox(openCount, "Open To-Dos", due7 + " due within 7 days", "info");
+  h += statBox(
+    overdue,
+    "Overdue",
+    overdue ? overdue + " need attention now" : "nothing overdue",
+    overdue ? "bad" : "ok",
+  );
+  h += statBox(compPct + "%", "Completion", doneCount + " of " + totalCount + " done", "ok");
+  h += "</div>";
+
+  // ── HIERARCHY LEVEL 3: 2-COLUMN BALANCED WORKSPACE ──────────────────────
+  h += '<div class="tasks-layout-grid">';
+
+  // LEFT COLUMN: THE TO-DO NOTEPAD (Primary Workstation)
+  h += '<div class="todo-main-col">';
+  h += '<div class="card todo-notepad-card">';
+
+  // Notepad Top Border & Stylized Header
+  h += '<div class="notepad-header">';
+  h += '<div class="notepad-title-cluster">';
+  h += '<span class="notepad-sparkle" aria-hidden="true">&#10022;</span>';
+  h += '<h2 class="notepad-title">TO DO LIST</h2>';
+  h += '<span class="notepad-sparkle" aria-hidden="true">&#10022;</span>';
+  h += "</div>";
+  h += '<div class="notepad-header-actions">';
   h +=
-    '<div class="tabs" role="tablist" aria-label="Task filters">' +
-    tbtn("open", "Open (" + openCount + ")") +
-    tbtn("today", "Due now") +
-    tbtn("week", "This week") +
-    tbtn("overdue", "Overdue" + (overdue ? " (" + overdue + ")" : "")) +
-    tbtn("nodate", "No date") +
-    tbtn("done", "Completed") +
-    tbtn("all", "All") +
+    '<select id="taskSort" class="todo-sort-select" aria-label="Sort tasks">' +
+    '<option value="priority"' +
+    (sort === "priority" ? " selected" : "") +
+    ">Sort: Priority</option>" +
+    '<option value="due"' +
+    (sort === "due" ? " selected" : "") +
+    ">Sort: Due Date</option>" +
+    '<option value="course"' +
+    (sort === "course" ? " selected" : "") +
+    ">Sort: Course</option>" +
+    "</select>";
+  h += '<button type="button" class="btn xs primary" data-act="task-new">+ Add to-do</button>';
+  h += "</div>";
+  h += "</div>";
+
+  // Notepad Filter Tabs
+  h +=
+    '<div class="tasks-tabs-wrap">' +
+    '<div class="tabs todo-tabs" role="tablist" aria-label="To-do filters">' +
+    _tabBtn("open", "Open (" + openCount + ")", tab === "open", "tasks") +
+    _tabBtn("today", "Due today", tab === "today", "tasks") +
+    _tabBtn("week", "This week", tab === "week", "tasks") +
+    _tabBtn("overdue", "Overdue" + (overdue ? " (" + overdue + ")" : ""), tab === "overdue", "tasks") +
+    _tabBtn("done", "Completed (" + doneCount + ")", tab === "done", "tasks") +
+    _tabBtn("all", "All (" + all.length + ")", tab === "all", "tasks") +
+    "</div>" +
     "</div>";
 
+  // ── RULED NOTEPAD CHECKLIST ROWS ─────────────────────────────────────────
   if (!list.length) {
-    return (
-      h +
-      '<div class="card">' +
-      empty(
-        "",
-        tab === "done" ? "Nothing completed yet" : "Nothing here",
-        "Import a syllabus to generate tasks automatically, or add one by hand.",
-        '<button class="btn primary mt" data-act="task-new">New task</button><button class="btn mt" data-act="go-import">Import syllabus</button>',
-      ) +
-      "</div>"
-    );
+    h += '<div class="todo-empty-ruled">';
+    h += '<div class="empty-ruled-line"></div>';
+    h += '<div class="empty-ruled-line">';
+    h += '<p class="small muted text-center m-0">' +
+      (tab === "done"
+        ? "No completed tasks yet. Check off items above when finished!"
+        : "Your to-do list is clear. Add a to-do to get started.") +
+      "</p>";
+    h += "</div>";
+    if (tab !== "done") {
+      h += '<div class="empty-ruled-line">';
+      h += '<button type="button" class="btn sm primary" data-act="task-new">+ Add to-do</button>';
+      h += "</div>";
+    }
+    h += '<div class="empty-ruled-line"></div>';
+    h += '<div class="empty-ruled-line"></div>';
+    h += "</div>";
+  } else {
+    h += '<div class="todo-checklist" role="list">';
+    list.forEach(function (e) {
+      h += renderTodoRow(e);
+    });
+    h += "</div>";
   }
 
-  h += '<div class="grid">';
-  list.forEach(function (e) {
-    h += renderTaskCard(e);
-  });
+  h += "</div>"; // .card.todo-notepad-card
+  h += "</div>"; // .todo-main-col
+
+  // RIGHT COLUMN: FOCUS & PRODUCTIVITY METRICS (ZERO EMPTY SPACE)
+  h += '<div class="todo-side-col">';
+
+  // 2. Priorities at a Glance Card
+  const critTasks = all.filter((e) => Tasks.isOpen(e) && Tasks.priority(e).label === "Critical").length;
+  const highTasks = all.filter((e) => Tasks.isOpen(e) && Tasks.priority(e).label === "High").length;
+  const medTasks = all.filter((e) => Tasks.isOpen(e) && Tasks.priority(e).label === "Medium").length;
+  const lowTasks = all.filter((e) => Tasks.isOpen(e) && Tasks.priority(e).label === "Low").length;
+
+  h += '<div class="card todo-priorities-card">';
+  h += '<div class="card-head">';
+  h += '<h3 style="margin:0;font-size:15px;">Priorities at a Glance</h3>';
   h += "</div>";
-  return h;
+  h += '<div class="priority-breakdown-list">';
+  h += '<div class="priority-stat-row"><span class="badge crit">Critical</span><strong class="v">' + critTasks + "</strong></div>";
+  h += '<div class="priority-stat-row"><span class="badge high">High</span><strong class="v">' + highTasks + "</strong></div>";
+  h += '<div class="priority-stat-row"><span class="badge med">Medium</span><strong class="v">' + medTasks + "</strong></div>";
+  h += '<div class="priority-stat-row"><span class="badge low">Low</span><strong class="v">' + lowTasks + "</strong></div>";
+  h += "</div>";
+  h += "</div>"; // .card.todo-priorities-card
 
-  function tbtn(id, label) {
-    return _tabBtn(id, label, (UIState.tab.tasks || "open") === id, "tasks");
-  }
+  // 3. Productivity Actions Card
+  h += '<div class="card todo-tools-card">';
+  h += '<div class="card-head">';
+  h += '<h3 style="margin:0;font-size:15px;">Study Plan Tools</h3>';
+  h += "</div>";
+  h += '<p class="tiny muted" style="margin:0 0 12px;line-height:1.4;">Generate AI study blocks around your deadlines or extract assignments from course syllabi.</p>';
+  h += '<button type="button" class="btn sm block" data-act="plan-generate">Auto-schedule study plan</button>';
+  h += '<button type="button" class="btn sm ghost block mt-s" data-act="go-import">Import from syllabus</button>';
+  h += "</div>"; // .card.todo-tools-card
+
+  h += "</div>"; // .todo-side-col
+  h += "</div>"; // .tasks-layout-grid
+
+  return '<div class="view-padded">' + h + "</div>";
 }
 
+/** Wire task events, sort dropdown, and quick-add handlers */
 export function afterTasks(root) {
-  const sel = q("#taskSort", root);
-  if (sel)
+  const container = root || document;
+  const sel = q("#taskSort", container);
+  if (sel) {
     sel.addEventListener("change", function () {
-      UIState.tab.taskSort = sel.value;
+      UIState.set("tab.taskSort", sel.value);
       Router.scheduleRender();
     });
+  }
 }
 
 export const tasksView = {

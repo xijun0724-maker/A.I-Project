@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { RAG } from "../../src/domain/rag.js";
 import { Store } from "../../src/core/store.js";
+import { CFG } from "../../src/config/constants.js";
 
 describe("RAG.stem", () => {
   it("returns short words unchanged (≤4 chars)", () => {
@@ -54,6 +55,23 @@ describe("RAG.tokenize", () => {
   it("removes pure numbers", () => {
     const tokens = RAG.tokenize("test 12345 word");
     expect(tokens).not.toContain("12345");
+  });
+
+  it("keeps a short number that qualifies a word", () => {
+    expect(RAG.tokenize("Week 3")).toContain("3");
+    expect(RAG.tokenize("Chapter 12 reading")).toContain("12");
+  });
+
+  it("drops bare numbers, number lists and long digit runs", () => {
+    expect(RAG.tokenize("2024")).toEqual([]);
+    expect(RAG.tokenize("12 34 56")).toEqual([]);
+    expect(RAG.tokenize("see 123456")).not.toContain("123456");
+    /* A number after a number is a list marker, not a reference. */
+    expect(RAG.tokenize("chapter 12 99")).not.toContain("99");
+  });
+
+  it("does not treat a stop-word as the word a number qualifies", () => {
+    expect(RAG.tokenize("the 3")).not.toContain("3");
   });
 
   it("returns empty array for empty input", () => {
@@ -184,5 +202,234 @@ describe("RAG.context", () => {
     const ctx = RAG.context("machine learning");
     expect(Array.isArray(ctx.terms)).toBe(true);
     expect(ctx.terms.length).toBeGreaterThan(0);
+  });
+
+  it("keeps retrieved passages inside their own budget, not the chat budget", () => {
+    Store.resetAll();
+    Store.db.documents = [
+      {
+        id: "big",
+        courseId: "c1",
+        name: "Big notes",
+        text: "entropy and heat engines. ".repeat(600),
+      },
+    ];
+    RAG.reindexAll();
+    const ctx = RAG.context("entropy");
+    const chars = ctx.chunks.reduce((n, c) => n + c.text.length, 0);
+    expect(ctx.chunks.length).toBeGreaterThan(0);
+    expect(chars).toBeLessThanOrEqual(CFG.maxContextChars);
+    expect(CFG.maxContextChars).toBeLessThan(CFG.maxChatChars);
+  });
+});
+
+/**
+ * An unmatched query used to return the first k chunks in document order with
+ * `score: 0`, which `RAG.context` then numbered `[1]…[k]` as if they were
+ * sources - a retrieval miss wearing citations.
+ */
+describe("RAG.search honesty", () => {
+  function seed() {
+    Store.resetAll();
+    Store.db.documents = [
+      {
+        id: "d1",
+        courseId: "c1",
+        name: "Physics",
+        text: "Thermodynamics covers heat, entropy and the second law in closed systems, with worked examples and problem sets.",
+      },
+      {
+        id: "d2",
+        courseId: "c2",
+        name: "Poetry",
+        text: "The sonnet form uses fourteen lines of iambic pentameter and a volta near the end of the poem.",
+      },
+    ];
+    RAG.reindexAll();
+  }
+
+  it("returns nothing when no term matches, instead of arbitrary chunks", () => {
+    seed();
+    expect(RAG.search("quantum chromodynamics")).toEqual([]);
+
+    const ctx = RAG.context("quantum chromodynamics");
+    expect(ctx.sources).toEqual([]);
+    expect(ctx.contextText).toBe("");
+  });
+
+  it("returns nothing for a query made only of stop-words", () => {
+    seed();
+    expect(RAG.search("what is the of and")).toEqual([]);
+  });
+
+  it("does not fall back to document order for an unscoped miss", () => {
+    seed();
+    expect(RAG.search("what is in this pdf")).toEqual([]);
+  });
+
+  it("still reads a document the student explicitly selected", () => {
+    seed();
+    const hits = RAG.search("what is in this pdf", { docIds: ["d1"] });
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].docId).toBe("d1");
+    /* Labelled honestly: not a match, a deliberate read of a chosen file. */
+    expect(hits[0].score).toBe(0);
+  });
+
+  it("drops a hit an order of magnitude weaker than the best match", () => {
+    Store.resetAll();
+    const docs = [];
+    for (let i = 0; i < 20; i++) {
+      docs.push({
+        id: "common" + i,
+        courseId: "c1",
+        name: "Weekly plan " + i,
+        text:
+          "Week plan for topic " +
+          i +
+          ". This week covers review sessions, practice questions and a short reflection on the week's reading list.",
+      });
+    }
+    docs.push({
+      id: "rare",
+      courseId: "c1",
+      name: "Zygote paper",
+      text: "Zygote zygote zygote. The zygote divides rapidly in the first hours after fertilisation.",
+    });
+    Store.db.documents = docs;
+    RAG.reindexAll();
+
+    const hits = RAG.search("zygote week");
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].docId).toBe("rare");
+    /* "week" is in almost every chunk, so it carries almost no information. */
+    expect(hits.every((h) => h.docId === "rare")).toBe(true);
+
+    /* The floor is a floor, not a hard filter. */
+    const loose = RAG.search("zygote week", { minRelative: 0 });
+    expect(loose.some((h) => h.docId.indexOf("common") === 0)).toBe(true);
+  });
+});
+
+/**
+ * Two P1-5 remainders from the 2026-09-23 audit:
+ * - CFG.chunkOverlap only engaged when a paragraph exceeded 1.7×chunkSize, so
+ *   the documented overlap never happened for ordinary (paragraph-boundary)
+ *   chunks — a sentence cut at a boundary was retrievable from one chunk only.
+ * - RAG.index stored a full copy of every chunk's text in `idx.byId`, roughly
+ *   doubling the library's memory footprint.
+ */
+describe("chunk overlap at paragraph boundaries", () => {
+  function para(prefix, i) {
+    return (
+      prefix +
+      " Paragraph number " +
+      i +
+      " carries its own complete thought with several sentences of body text so the chunker treats it as a substantial run of content worth keeping whole. It continues with a second sentence that mentions entropy and isolated systems, and a third that closes the argument neatly. A fourth sentence stretches the paragraph out with further technical vocabulary, naming reversible processes, heat engines and the cycling of energy between reservoirs. A fifth sentence keeps going in the same measured register, adding enough bulk that the paragraph stands comfortably on its own when the document is divided into overlapping chunks for retrieval. The sixth and final sentence adds still more bulk so that pairing this paragraph with a short neighbour would exceed the chunk size and split them apart."
+    );
+  }
+
+  function seedParagraphs(paras) {
+    Store.resetAll();
+    Store.db.documents = [
+      { id: "ov", courseId: "c1", name: "Notes", text: paras.join("\n\n") },
+    ];
+    RAG.reindexAll();
+    return RAG.chunkText(Store.db.documents[0].text);
+  }
+
+  it("resumes the next chunk inside the previous one, so boundary sentences are shared", () => {
+    const chunks = seedParagraphs([
+      para("First.", 1),
+      para("Second.", 2),
+      para("Third.", 3),
+    ]);
+    expect(chunks.length).toBe(3);
+
+    const tail = chunks[0].slice(-CFG.chunkOverlap).replace(/^\s+/, "");
+    expect(tail.length).toBeGreaterThan(50);
+    /* The second chunk opens with the window it carried back… */
+    expect(chunks[1].startsWith(tail)).toBe(true);
+    /* …and the third does the same to the second. */
+    const tail2 = chunks[1].slice(-CFG.chunkOverlap).replace(/^\s+/, "");
+    expect(chunks[2].startsWith(tail2)).toBe(true);
+  });
+
+  it("does not carry into a neighbour too short to pay for the window", () => {
+    const mid =
+      "Mid. A short closing paragraph with enough content to pass the thirty character floor and survive as a chunk of its own, but not enough to justify an overlap window.";
+    const chunks = seedParagraphs([para("First.", 1), mid]);
+    /* The short paragraph is its own run (pairing it with the long one
+       exceeds chunkSize) but is far smaller than 3× the overlap, so it
+       must not grow by a 150-character copy of its neighbour. */
+    expect(chunks.length).toBe(2);
+    expect(chunks[1].startsWith("Mid.")).toBe(true);
+    expect(chunks[1].length).toBeLessThan(CFG.chunkOverlap * 3);
+  });
+
+  it("keeps over-ceiling sweeps inside the first chunk's tail as before", () => {
+    Store.resetAll();
+    const big =
+      Array.from({ length: 12 }, (_, i) =>
+        "Sentence " +
+        i +
+        " elaborates the thermodynamic argument with just enough words to fill the space between sentence boundaries in this very long single paragraph run."
+      ).join(" ") + " Tail close.";
+    Store.db.documents = [{ id: "big", courseId: "c1", name: "Big", text: big }];
+    RAG.reindexAll();
+    const chunks = RAG.chunkText(big);
+    expect(chunks.length).toBeGreaterThan(1);
+    /* Consecutive sweep pieces still overlap. */
+    for (let i = 1; i < chunks.length; i++) {
+      const prevTail = chunks[i - 1].slice(-40);
+      expect(chunks[i].includes(prevTail.trim()) || chunks[i - 1].includes(chunks[i].slice(0, 40).trim())).toBe(true);
+    }
+  });
+});
+
+describe("index entries do not duplicate document text", () => {
+  function seed() {
+    Store.resetAll();
+    Store.db.documents = [
+      {
+        id: "d1",
+        courseId: "c1",
+        name: "Physics",
+        text:
+          "Thermodynamics covers heat, entropy and the second law in closed systems, with worked examples and problem sets for every week of the term.",
+      },
+    ];
+    RAG.reindexAll();
+  }
+
+  it("resolves .text lazily from the document store instead of storing a copy", () => {
+    seed();
+    const idx = RAG.index();
+    const id = Object.keys(idx.byId)[0];
+    expect(id).toBeTruthy();
+    const entry = idx.byId[id];
+
+    /* Reads still work… */
+    expect(typeof entry.text).toBe("string");
+    expect(entry.text.length).toBeGreaterThan(0);
+    expect(Store.db.documents[0].text.includes(entry.text)).toBe(true);
+
+    /* …but as a getter, not a materialised string on the entry. */
+    const desc = Object.getOwnPropertyDescriptor(entry, "text");
+    expect(typeof desc.get).toBe("function");
+    expect(desc.value).toBeUndefined();
+  });
+
+  it("text still flows through search results and context after the change", () => {
+    seed();
+    const hits = RAG.search("entropy closed systems");
+    expect(hits.length).toBeGreaterThan(0);
+    expect(hits[0].text.length).toBeGreaterThan(0);
+
+    const ctx = RAG.context("entropy closed systems");
+    expect(ctx.contextText).toContain("entropy");
+    expect(ctx.sources[0].snippet.length).toBeGreaterThan(0);
+    /* Search results are materialised copies — plain values, readable freely. */
+    expect(typeof Object.getOwnPropertyDescriptor(hits[0], "text").value).toBe("string");
   });
 });

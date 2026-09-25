@@ -1,0 +1,57 @@
+/* ================================================================ JOURNEY A.I — Card Component (Double-Bezel & Haptic Depth) Machined glass plate, inner highlight, specular reflection, glowing hover lift ================================================================ */ .card{
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: var(--rounded-lg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-card);
+  position: relative;
+  transition:
+    transform var(--duration-fast) var(--ease-spring),
+    box-shadow var(--duration-normal) var(--ease-out-expo),
+    border-color var(--duration-normal) var(--ease-out-expo);
+}.card * *{ margin-top: 0; }.card .spacer{ flex: 1 1 auto; }.card:hover{
+  transform: translateY(-2px);
+  border-color: var(--rule-accent);
+  box-shadow: var(--shadow-elevated), var(--glow-accent);
+}/* Double-bezel inner highlight & specular top edge reflection */ .card::before{
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(56, 189, 248, 0.28) 0%,
+    rgba(255, 255, 255, 0.06) 20%,
+    transparent 50%,
+    transparent 70%,
+    rgba(56, 189, 248, 0.1) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.6;
+  transition: opacity var(--duration-normal) var(--ease-out-expo);
+}.card:hover::before{ opacity: 1; }.card.pad-sm{
+  padding: 14px 16px;
+  border-radius: var(--rounded-md);
+}.card-head{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: -4px 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule-2);
+}.card-head h2, .card-head h3{
+  margin: 0;
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: var(--ls-tight);
+}.card-head .spacer{ flex: 1 1 auto; }

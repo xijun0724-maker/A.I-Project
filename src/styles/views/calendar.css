@@ -1,0 +1,793 @@
+/* ================================================================
+   JOURNEY A.I — Modern Compact Calendar & LMS Schedule
+   High-density unified control bar, strict information hierarchy,
+   and responsive 7-column calendar grid.
+   ================================================================ */
+
+.moodle-calendar-card {
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: var(--rounded-md);
+  padding: 14px 16px 16px;
+  margin-bottom: 0;
+  box-shadow: var(--shadow-subtle, 0 1px 3px rgba(0, 0, 0, 0.04));
+  box-sizing: border-box;
+}
+
+[data-theme="dark"] .moodle-calendar-card {
+  background: var(--sheet);
+  border-color: var(--rule);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* ── Unified Compact Header & Navigation Bar ─────────────────────── */
+.moodle-calendar-unified-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+/* Context Group (Left): Title & Academic Term Badge */
+.cal-context-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.moodle-card-title {
+  font-family: var(--font-display, inherit);
+  font-size: 16.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
+}
+
+.cal-term-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--rounded-pill);
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  transition: all var(--duration-fast);
+}
+
+.cal-term-badge:hover {
+  filter: brightness(1.1);
+  transform: translateY(-0.5px);
+}
+
+/* Month Navigation Group (Center): Stepper Cluster & Title */
+.cal-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.cal-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--rounded-xs);
+  background: var(--sheet);
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+[data-theme="dark"] .cal-stepper {
+  background: var(--paper);
+  border-color: var(--rule);
+}
+
+.btn-cal-icon-nav {
+  background: transparent;
+  border: none;
+  color: var(--ink-2);
+  font-size: 11px;
+  padding: 5px 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: background-color var(--duration-fast), color var(--duration-fast);
+}
+
+.btn-cal-icon-nav:hover {
+  background-color: var(--paper-2);
+  color: var(--ink);
+}
+
+.btn-cal-today {
+  background: transparent;
+  border-top: none;
+  border-bottom: none;
+  border-left: 1px solid var(--rule-2);
+  border-right: 1px solid var(--rule-2);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  cursor: pointer;
+  line-height: 1.2;
+  transition: background-color var(--duration-fast), color var(--duration-fast);
+}
+
+[data-theme="dark"] .btn-cal-today {
+  border-color: var(--rule);
+}
+
+.btn-cal-today:hover {
+  background-color: var(--paper-2);
+  color: var(--pen);
+}
+
+.moodle-cal-month-title {
+  font-family: var(--font-display, inherit);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Actions Group (Right): Course Filter, Academic Cal, New Event */
+.cal-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.moodle-calendar-filter-wrap {
+  width: 160px;
+  min-width: 120px;
+}
+
+.moodle-calendar-course-select {
+  width: 100% !important;
+  height: 32px;
+  background-color: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--rounded-xs);
+  padding: 2px 8px;
+  font-size: 12px;
+  color: var(--ink);
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+
+[data-theme="dark"] .moodle-calendar-course-select {
+  background-color: var(--paper);
+  border-color: var(--rule);
+}
+
+.moodle-calendar-course-select:focus {
+  border-color: #0f6cbf;
+  box-shadow: 0 0 0 2px rgba(15, 108, 191, 0.2);
+}
+
+.btn-cal-academic {
+  height: 32px;
+  background-color: var(--sheet);
+  color: #0f6cbf;
+  border: 1px solid rgba(15, 108, 191, 0.35);
+  border-radius: var(--rounded-xs);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all var(--duration-fast);
+  white-space: nowrap;
+}
+
+.btn-cal-academic:hover {
+  background-color: rgba(15, 108, 191, 0.08);
+  border-color: #0f6cbf;
+  color: #0d5ca5;
+}
+
+.btn-cal-academic:focus-visible {
+  outline: 2px solid #0f6cbf;
+  outline-offset: 1px;
+}
+
+[data-theme="dark"] .btn-cal-academic {
+  background-color: rgba(96, 165, 250, 0.08);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.35);
+}
+
+[data-theme="dark"] .btn-cal-academic:hover {
+  background-color: rgba(96, 165, 250, 0.16);
+  color: #93c5fd;
+  border-color: #60a5fa;
+}
+
+.btn-moodle-primary {
+  height: 32px;
+  background-color: #0f6cbf !important;
+  color: #ffffff !important;
+  border: 1px solid #0f6cbf !important;
+  border-radius: var(--rounded-xs);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  transition: background-color var(--duration-fast), transform var(--duration-fast);
+}
+
+.btn-moodle-primary:hover {
+  background-color: #0d5ca5 !important;
+  border-color: #0d5ca5 !important;
+  transform: translateY(-0.5px);
+}
+
+/* Backward compatibility for previous month navigation classes */
+.btn-cal-nav {
+  cursor: pointer;
+}
+
+/* ── Calendar Table & Grid ──────────────────────────────────────── */
+.moodle-calendar-grid-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--rounded-sm);
+  background: var(--paper);
+}
+
+[data-theme="dark"] .moodle-calendar-grid-wrap {
+  background: var(--sheet);
+  border-color: var(--rule);
+}
+
+.moodle-calendar-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 100%;
+}
+
+.cal-th {
+  width: 14.2857%;
+  padding: 7px 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  background: var(--sheet);
+  border-bottom: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+}
+
+[data-theme="dark"] .cal-th {
+  background: var(--paper);
+  border-color: var(--rule);
+}
+
+.cal-th:last-child {
+  border-right: none;
+}
+
+.cal-td {
+  width: 14.2857%;
+  height: auto;
+  min-height: 52px;
+  vertical-align: top;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+  transition: background-color var(--duration-fast);
+  box-sizing: border-box;
+}
+
+.cal-td:last-child {
+  border-right: none;
+}
+
+.cal-td-empty {
+  background-color: rgba(0, 0, 0, 0.015);
+}
+
+[data-theme="dark"] .cal-td-empty {
+  background-color: rgba(255, 255, 255, 0.015);
+}
+
+.cal-td:hover:not(.cal-td-empty) {
+  background-color: var(--paper-2);
+}
+
+.cal-td.is-today {
+  background-color: rgba(15, 108, 191, 0.04);
+  box-shadow: inset 0 2px 0 #0f6cbf;
+}
+
+[data-theme="dark"] .cal-td.is-today {
+  background-color: rgba(96, 165, 250, 0.06);
+  box-shadow: inset 0 2px 0 #60a5fa;
+}
+
+.cal-cell-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 48px;
+}
+
+/* Day number header inside cell */
+.cal-day-header {
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.cal-day-num {
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  padding: 1px 4px;
+  border-radius: var(--rounded-xs);
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.cal-day-empty-btn {
+  color: var(--ink-2);
+  transition: color var(--duration-fast), background-color var(--duration-fast);
+}
+
+.cal-day-empty-btn:hover {
+  background-color: var(--paper-2);
+  color: var(--ink);
+}
+
+.has-events-btn {
+  color: #0f6cbf !important;
+  font-weight: 700;
+}
+
+.has-events-btn:hover {
+  background-color: rgba(15, 108, 191, 0.1);
+  text-decoration: underline;
+}
+
+[data-theme="dark"] .has-events-btn {
+  color: #60a5fa !important;
+}
+
+.is-today .cal-day-num {
+  background-color: #0f6cbf;
+  color: #ffffff !important;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11.5px;
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(15, 108, 191, 0.4);
+}
+
+[data-theme="dark"] .is-today .cal-day-num {
+  background-color: #3b82f6;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.4);
+}
+
+/* Event rows inside cell */
+.cal-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.cal-event-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  line-height: 1.25;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  transition: background-color var(--duration-fast), border-color var(--duration-fast);
+}
+
+[data-theme="dark"] .cal-event-row {
+  background: var(--paper);
+  border-color: var(--rule);
+}
+
+.cal-event-row:hover {
+  background-color: var(--paper-2);
+  border-color: var(--rule-accent);
+}
+
+.cal-event-bullet {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  min-width: 6px;
+  border: 1.6px solid #ea580c;
+  border-radius: 50%;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.cal-event-link {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+
+.cal-event-link:hover {
+  color: var(--pen);
+  text-decoration: underline;
+}
+
+.cal-more-link {
+  background: rgba(15, 108, 191, 0.08);
+  border: 1px solid rgba(15, 108, 191, 0.15);
+  color: #0f6cbf;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-align: left;
+  line-height: 1.2;
+  align-self: flex-start;
+  margin-top: 1px;
+  transition: all var(--duration-fast);
+}
+
+.cal-more-link:hover {
+  background-color: rgba(15, 108, 191, 0.16);
+  color: #0d5ca5;
+}
+
+[data-theme="dark"] .cal-more-link {
+  background: rgba(96, 165, 250, 0.1);
+  border-color: rgba(96, 165, 250, 0.25);
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .cal-more-link:hover {
+  background: rgba(96, 165, 250, 0.2);
+  color: #93c5fd;
+}
+
+/* ── Compact Category Legend Bar ─────────────────────────────────── */
+.cal-legend-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 8px 4px 0;
+  border-top: 1px solid var(--rule);
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+
+.cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cal-legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cal-legend-dot.dot-assignment {
+  background: #ea580c;
+  box-shadow: 0 0 4px rgba(234, 88, 12, 0.4);
+}
+
+.cal-legend-dot.dot-exam {
+  background: #7c3aed;
+  box-shadow: 0 0 4px rgba(124, 58, 237, 0.4);
+}
+
+.cal-legend-dot.dot-milestone {
+  background: #0d9488;
+  box-shadow: 0 0 4px rgba(13, 148, 136, 0.4);
+}
+
+.cal-legend-dot.dot-other {
+  background: #0f6cbf;
+  box-shadow: 0 0 4px rgba(15, 108, 191, 0.4);
+}
+
+
+
+
+/* Modal Content */ .cal-config-modal-content{
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}.cal-config-section{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}.cal-config-section-title{
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+  margin: 0;
+}.cal-config-section-desc{
+  font-size: 12.5px;
+  color: var(--ink-3);
+  margin: 0;
+  line-height: 1.4;
+}.cal-config-grid{
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}@media (min-width: 480px){.cal-config-grid{
+    grid-template-columns: 1fr 1fr;
+  }
+}.cal-category-toggles{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background-color: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: 6px;
+  padding: 10px 12px;
+}.cal-toggle-row{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  margin: 0;
+  padding: 4px 0;
+}.cal-toggle-row:hover .cal-toggle-title{
+  color: var(--ink);
+}.cal-checkbox{
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #0f6cbf;
+  margin: 0;
+  flex-shrink: 0;
+}.cal-toggle-label{
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}.cal-toggle-title{
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  line-height: 1.3;
+}.cal-toggle-desc{
+  font-size: 11.5px;
+  color: var(--ink-2);
+  line-height: 1.3;
+}/* Term summary mini-card */ .cal-term-summary-card{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background-color: var(--sheet);
+  border: 1px dashed var(--rule-2);
+  border-radius: 6px;
+  padding: 10px 14px;
+}.cal-term-info{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}.cal-term-eyebrow{
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}.cal-term-name{
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}.cal-term-dates{
+  font-size: 11.5px;
+  color: var(--ink-2);
+}/* ── Academic Calendar Header Button ───────────────────────────── */ .btn-cal-academic{
+  height: 30px;
+  background-color: var(--sheet);
+  color: #0f6cbf;
+  border: 1px solid rgba(15, 108, 191, 0.35);
+  border-radius: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 0 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background-color var(--duration-fast), border-color var(--duration-fast), color var(--duration-fast);
+}.btn-cal-academic:hover{
+  background-color: rgba(15, 108, 191, 0.08);
+  border-color: #0f6cbf;
+  color: #0d5ca5;
+}.btn-cal-academic:focus-visible{
+  outline: 2px solid #0f6cbf;
+  outline-offset: 1px;
+}[data-theme="dark"] .btn-cal-academic{
+  background-color: rgba(96, 165, 250, 0.1);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.35);
+}[data-theme="dark"] .btn-cal-academic:hover{
+  background-color: rgba(96, 165, 250, 0.2);
+  color: #93c5fd;
+  border-color: #60a5fa;
+}/* ── Academic Calendar Modal Information Hierarchy ─────────────── */ .academic-cal-modal-content{
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}.ac-modal-section{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}.ac-section-primary{
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: 8px;
+  padding: 14px 16px;
+}.ac-section-header{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}.ac-section-badge{
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #0f6cbf;
+  background: rgba(15, 108, 191, 0.1);
+  padding: 2px 7px;
+  border-radius: 3px;
+}.ac-section-badge.secondary{
+  color: var(--ink-2);
+  background: rgba(0, 0, 0, 0.05);
+}[data-theme="dark"] .ac-section-badge.secondary{
+  background: rgba(255, 255, 255, 0.08);
+}.ac-section-title{
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  letter-spacing: -0.01em;
+}.ac-section-subtitle{
+  font-size: 12px;
+  color: var(--ink-3);
+  margin: 0;
+  line-height: 1.4;
+}.ac-dates-grid{
+  margin-top: 4px;
+}/* Duration card */ .ac-duration-card{
+  margin-top: 10px;
+  background: var(--paper);
+  border: 1px solid var(--rule-2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}.ac-duration-stats{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}.ac-duration-stat-item{
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}.ac-duration-stat-val{
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f6cbf;
+  line-height: 1.1;
+}[data-theme="dark"] .ac-duration-stat-val{
+  color: #60a5fa;
+}.ac-duration-stat-lbl{
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-2);
+}.ac-duration-divider{
+  width: 1px;
+  height: 24px;
+  background: var(--rule-2);
+}.ac-duration-range-text{
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}.ac-duration-warning{
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 600;
+}/* Milestones box */ .ac-milestones-box{
+  background: var(--bg-subtle, var(--sheet));
+  border: 1px solid var(--rule-2);
+  border-radius: 6px;
+  padding: 12px 14px;
+}.ac-milestone-checkbox-label{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  margin: 0;
+}.ac-milestone-checkbox-label strong{
+  display: block;
+  font-size: 13px;
+  color: var(--ink);
+  margin-bottom: 2px;
+}.ac-milestone-checkbox-label span{
+  font-size: 11.5px;
+  color: var(--ink-3);
+  line-height: 1.3;
+}.ac-milestones-preview{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--rule-2);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}.ac-milestone-preview-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}.ac-milestone-preview-title{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}.ac-milestone-preview-date{
+  color: var(--ink-2);
+  font-size: 11.5px;
+}

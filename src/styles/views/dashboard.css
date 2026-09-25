@@ -1,0 +1,504 @@
+/* ================================================================ JOURNEY A.I — Dashboard View Styles Bento Box Architecture: Top 3 Stat Cards, Left: What To Do Next Competency Mastery, Right: Upcoming Deadlines ================================================================ */ /* ── Top Bento Stat Grid (Auto-fitting responsive cards) ────────── */ .kpi-grid, .register, .dash-kpi-grid{
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px;
+  margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}@media (max-width: 768px){.kpi-grid, .register, .dash-kpi-grid{
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+}.dash-kpi-grid .card, .register .card{
+  padding: 10px 14px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}.kpi{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0;
+  min-width: 0;
+}/* Label on top matching mockup */ .kpi .k{
+  order: 1;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}/* Big display number in center */ .kpi .v{
+  order: 2;
+  font-size: 30px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  margin: 1px 0;
+}/* Subtitle on bottom */ .kpi .d{
+  order: 3;
+  font-size: 11px;
+  color: var(--ink-3);
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}/* ── Dashboard 2-column Bento Grid ──────────────────────────────── */ .dash-content-grid{
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: var(--sp-md);
+  align-items: start;
+  margin-bottom: var(--sp-lg);
+  width: 100%;
+}@media (max-width: 960px){.dash-content-grid{
+    grid-template-columns: 1fr;
+  }
+}.dash-col-left{
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+  min-width: 0;
+}.dash-col-right{
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-md);
+  min-width: 0;
+}/* ── What To Do Next Card (Primary Action Center) ───────────────── */ .what-next-card .card-head{
+  margin-bottom: 14px;
+}
+
+
+
+.what-next-body{
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+
+/* ── Course Progress Card ───────────────────────────────────────── */ .course-progress-card .card-head{
+  margin-bottom: 14px;
+}
+
+
+
+
+
+
+
+
+
+
+
+/* ── Upcoming Deadlines Card (Timeline in Right Column) ──────────── */ .card-head{
+  margin-bottom: 14px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ── Circular dot separator ─────────────────────────────────────── */ i.msep{
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--ink-3);
+  margin: 0 6px;
+  vertical-align: middle;
+  font-style: normal;
+  opacity: 0.7;
+}/* ── Moodle 4.x Dashboard & Timeline Block ──────────────────────── */ .moodle-dashboard-container{
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}.moodle-dashboard-card{
+  background: var(--paper);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--rounded-md);
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}.moodle-timeline-toolbar{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: nowrap;
+}.timeline-select{
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: auto !important;
+  max-width: 140px !important;
+  min-width: 95px;
+  height: 34px !important;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  padding: 0 28px 0 10px !important;
+  background-color: var(--sheet, #ffffff);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M2.2 4.2a.75.75 0 0 1 1.06 0L6 6.94l2.74-2.74a.75.75 0 1 1 1.06 1.06l-3.27 3.27a.75.75 0 0 1-1.06 0L2.2 5.26a.75.75 0 0 1 0-1.06z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 10px 10px;
+  color: var(--ink-2, #495057);
+  font-size: 13px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  outline: none;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}.timeline-select:focus{
+  border-color: #0f6cbf;
+  outline: 2px solid rgba(15, 108, 191, 0.25);
+  outline-offset: 0;
+}.timeline-search-wrap{
+  flex: 1 1 0%;
+  min-width: 100px;
+  box-sizing: border-box;
+}.timeline-search-input{
+  width: 100%;
+  height: 34px !important;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  padding: 0 12px !important;
+  background-color: var(--sheet, #ffffff);
+  color: var(--ink, #18181b);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}.timeline-search-input::placeholder{
+  color: #6c757d;
+  opacity: 1;
+}.timeline-search-input:focus{
+  border-color: #0f6cbf;
+  outline: 2px solid rgba(15, 108, 191, 0.25);
+  outline-offset: 0;
+}[data-theme="dark"] .timeline-select{
+  background-color: var(--sheet);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--ink-2);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M2.2 4.2a.75.75 0 0 1 1.06 0L6 6.94l2.74-2.74a.75.75 0 1 1 1.06 1.06l-3.27 3.27a.75.75 0 0 1-1.06 0L2.2 5.26a.75.75 0 0 1 0-1.06z'/%3E%3C/svg%3E");
+}[data-theme="dark"] .timeline-search-input{
+  background-color: var(--sheet);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: var(--ink);
+}[data-theme="dark"] .timeline-search-input::placeholder{
+  color: var(--ink-3);
+}@media (max-width: 640px){.moodle-timeline-toolbar{
+    flex-wrap: wrap;
+  }.timeline-search-wrap{
+    flex: 1 1 100%;
+  }
+}.timeline-date-group{
+  margin-bottom: 20px;
+}.timeline-date-group:last-child{
+  margin-bottom: 0;
+}.timeline-date-group-title{
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 16px 0 10px;
+  letter-spacing: -0.01em;
+}.timeline-date-group:first-child .timeline-date-group-title{
+  margin-top: 4px;
+}.timeline-items-list{
+  display: flex;
+  flex-direction: column;
+}.timeline-item-row{
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule-2);
+}.timeline-item-row:last-child{
+  border-bottom: none;
+}.timeline-time-col{
+  width: 48px;
+  flex: 0 0 48px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+  padding-top: 2px;
+}.timeline-icon-col{
+  flex: 0 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 1px;
+}.timeline-icon-svg{
+  color: #d61f69;
+}.timeline-body-col{
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 12px;
+}.timeline-title-row{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}.timeline-title-link{
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #0f6cbf;
+  text-decoration: none;
+  cursor: pointer;
+}.timeline-title-link:hover{
+  text-decoration: underline;
+  color: #0d5ca5;
+}[data-theme="dark"] .timeline-title-link{
+  color: #60a5fa;
+}[data-theme="dark"] .timeline-title-link:hover{
+  color: #93c5fd;
+}.badge-moodle-overdue{
+  background-color: #c92a2a;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+}.badge-moodle-due{
+  background-color: #d97706;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+}.timeline-detail-row{
+  font-size: 12.5px;
+  color: var(--ink-2);
+  line-height: 1.4;
+  word-break: break-word;
+}.timeline-detail-action{
+  font-weight: 500;
+}.timeline-action-col{
+  flex: 0 0 auto;
+  padding-top: 2px;
+}.btn-moodle-action{
+  height: 34px;
+  border: 1px solid var(--rule-2);
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 0 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--duration-fast);
+  white-space: nowrap;
+}.btn-moodle-action:hover{
+  background-color: var(--paper-2);
+  border-color: var(--pen);
+  color: var(--ink);
+}/* ── Week Horizon Band (Compact Cadence Strip) ─────────────────── */ .band, .compact-band{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--rounded-md);
+  background: var(--paper);
+  margin-bottom: 12px;
+  box-sizing: border-box;
+  width: 100%;
+}.band-left{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}.band-n{
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  background: rgba(15, 108, 191, 0.1);
+  color: var(--primary, #0f6cbf);
+  border-radius: var(--rounded-pill);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}[data-theme="dark"] .band-n{
+  background: rgba(96, 165, 250, 0.15);
+  color: #93c5fd;
+}.band-title{
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+}.band-meta{
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}.band-right{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}.band-term-badge{
+  font-size: 11.5px;
+  color: var(--ink-3);
+  font-weight: 500;
+  white-space: nowrap;
+}button.band-term-badge{
+  background: transparent;
+  border: 1px dashed transparent;
+  border-radius: var(--rounded-pill, 9999px);
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}button.band-term-badge:hover{
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+  border-color: rgba(15, 108, 191, 0.2);
+  color: var(--primary, #0f6cbf);
+}button.band-term-badge:focus-visible{
+  outline: 2px solid var(--primary, #0f6cbf);
+  outline-offset: 1px;
+}/* ── Multi-Tier Academic Hierarchy Bento Rows ─────────────────── */ .dash-bento-row{
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+}/* Row 1: Strategic Focus (Equal Height!) */ .dash-focus-row{
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  align-items: stretch;
+}/* Row 2: Tactical Submissions & Schedule (Shared Baseline!) */ .dash-schedule-row{
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  align-items: start;
+}@media (max-width: 1150px){.dash-focus-row, .dash-schedule-row{
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}/* Compact overrides for dashboard bento cards to eliminate empty space */ .dash-focus-row .card, .dash-schedule-row .card{
+  padding: 16px 18px;
+  margin-bottom: 0;
+}.dash-focus-row .card .card-head, .dash-schedule-row .card .card-head{
+  margin: 0 0 12px;
+  padding-bottom: 10px;
+}.dash-focus-row .card .card-head h2, .dash-schedule-row .card .card-head h2{
+  font-size: 16.5px;
+  font-weight: 600;
+}.what-next-card{
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}.what-next-body{
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.course-progress-card{
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}.course-progress-card .tbl-wrap{
+  flex: 1 1 auto;
+  overflow-x: auto;
+}.course-progress-card .tbl th{
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-3);
+}.course-progress-card .tbl td{
+  padding: 8px 10px;
+  font-size: 12.5px;
+}/* ── Synchronized Dashboard To Do: Card ────────────────────────── */ .dashboard-todo-card{
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}.dashboard-todo-heading{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}.dashboard-todo-card .what-next-body{
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}.dashboard-todo-list{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}.dashboard-todo-list .todo-item-row{
+  padding: 10px 6px;
+}.dashboard-todo-list .todo-item-content{
+  cursor: pointer;
+  border-radius: 4px;
+  outline: none;
+  transition: color var(--duration-fast);
+}.dashboard-todo-list .todo-item-content:hover .todo-title:not(.done-text){
+  color: var(--pen, #0f6cbf);
+}[data-theme="dark"] .dashboard-todo-list .todo-item-content:hover .todo-title:not(.done-text){
+  color: #60a5fa;
+}.dashboard-todo-list .todo-item-content:focus-visible{
+  outline: 2px solid var(--pen, #0f6cbf);
+  outline-offset: 2px;
+}.dashboard-todo-list .todo-title{
+  font-size: 13.5px;
+  transition: color var(--duration-fast);
+}.dashboard-todo-list .todo-meta-row{
+  margin-top: 2px;
+}.dashboard-todo-empty{
+  padding: 32px 16px;
+  text-align: center;
+}.dashboard-todo-empty p{
+  margin: 0;
+}.dashboard-todo-footer{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--rule-2);
+}.dashboard-todo-footer .view-all-todos-btn{
+  color: var(--pen, #0f6cbf);
+  font-weight: 600;
+}
+
+

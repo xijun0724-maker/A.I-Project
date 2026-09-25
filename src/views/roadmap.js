@@ -1,4 +1,4 @@
-import { UI, UIState } from "../core/state.js";
+import { UIState } from "../core/state.js";
 import { Coach } from "../domain/coach.js";
 import { Tasks } from "../domain/tasks.js";
 import {
@@ -6,8 +6,6 @@ import {
   sortBy,
   groupBy,
   pct,
-  sum,
-  minutesToHM,
 } from "../utils/helpers.js";
 import { fmtDate, fromIso, dateOnly, addDays } from "../utils/date.js";
 import {
@@ -20,9 +18,10 @@ import {
   eventProgress,
   priBadge,
   docs,
-  tabBtn as _tabBtn,
-  pageHead,
 } from "./shared.js";
+import { courses, bindCoursesView } from "./courses.js";
+
+
 
 function renderWeeklyOutline(lessons, events, readings, currentWeek) {
   if (!lessons.length) {
@@ -50,7 +49,7 @@ function renderWeeklyOutline(lessons, events, readings, currentWeek) {
     .sort(function (a, b) {
       return a - b;
     });
-  let h = '<div class="grid g-2-1"><div class="card">';
+  let h = '<div class="dash-content-grid"><div class="dash-col-left"><div class="card">';
 
   weeks.forEach(function (w) {
     const group = byWeek[w];
@@ -80,6 +79,8 @@ function renderWeeklyOutline(lessons, events, readings, currentWeek) {
     h +=
       '<div class="rail' +
       (isCurrent ? " on" : "") +
+      '" id="week-rail-' +
+      w +
       '">' +
       '<div class="rail-n">' +
       w +
@@ -109,7 +110,7 @@ function renderWeeklyOutline(lessons, events, readings, currentWeek) {
         '<div class="chk' +
         (l.done ? " on" : "") +
         '" data-act="lesson-toggle" data-id="' +
-        l.id +
+        esc(l.id) +
         '"' +
         ' role="checkbox" tabindex="0" aria-checked="' +
         (l.done ? "true" : "false") +
@@ -134,7 +135,7 @@ function renderWeeklyOutline(lessons, events, readings, currentWeek) {
         '</div><div class="row nowrap">' +
         courseChip(l.courseId) +
         '<button class="btn xs ghost" data-act="lesson-edit" data-id="' +
-        l.id +
+        esc(l.id) +
         '">Edit</button></div></div>';
     });
 
@@ -153,7 +154,7 @@ function renderWeeklyOutline(lessons, events, readings, currentWeek) {
           : "") +
         "</div></div>" +
         '<button class="btn xs" data-act="event-edit" data-id="' +
-        e.id +
+        esc(e.id) +
         '">Open</button></div>';
     });
 
@@ -162,8 +163,8 @@ function renderWeeklyOutline(lessons, events, readings, currentWeek) {
     h += "</div></div>";
   });
 
-  h += "</div>";
-  h += '<div class="grid gap-md">';
+  h += "</div></div>";
+  h += '<div class="dash-col-right roadmap-sidebar">';
   h +=
     '<div class="card"><div class="card-head"><h3>Roadmap coverage</h3></div>' +
     '<div class="kv"><span class="k">Topics mapped</span><span class="v">' +
@@ -188,11 +189,47 @@ function renderWeeklyOutline(lessons, events, readings, currentWeek) {
         lessons.length,
       ),
     ) +
+    (currentWeek
+      ? '<a href="#week-rail-' +
+        currentWeek +
+        '" class="btn sm block mt-s">Jump to Week ' +
+        currentWeek +
+        " (Now)</a>"
+      : "") +
     "</div>";
+
   h +=
-    '<div class="card"><div class="card-head"><h3>Add a topic</h3></div>' +
+    '<div class="card"><div class="card-head"><h3>Week Navigator</h3><span class="tiny muted">' +
+    weeks.length +
+    ' wks</span></div><div class="week-nav-grid">' +
+    weeks
+      .map(function (w) {
+        const isDone =
+          byWeek[w] &&
+          byWeek[w].length > 0 &&
+          byWeek[w].every(function (l) {
+            return l.done;
+          });
+        return (
+          '<a href="#week-rail-' +
+          w +
+          '" class="week-nav-pill' +
+          (w === currentWeek ? " now" : "") +
+          (isDone ? " done" : "") +
+          '" title="Jump to Week ' +
+          w +
+          '">W' +
+          w +
+          "</a>"
+        );
+      })
+      .join("") +
+    "</div></div>";
+
+  h +=
+    '<div class="card"><div class="card-head"><h3>Add topic</h3></div>' +
     '<p class="small muted">Manually add a lesson if the syllabus missed it.</p>' +
-    '<button class="btn block sm" data-act="lesson-new">New topic</button></div>';
+    '<button class="btn block sm primary" data-act="lesson-new">New topic</button></div>';
   h += "</div></div>";
   return h;
 }
@@ -236,8 +273,10 @@ function renderDeadlines(events) {
         label +
         '</span><span class="spacer"></span>' +
         '<span class="tiny muted">' +
-        minutesToHM(sum(grouped[month], Tasks.remainingMinutes)) +
-        " of work</span></div>";
+        grouped[month].length +
+        " assessment" +
+        (grouped[month].length === 1 ? "" : "s") +
+        "</span></div>";
       h +=
         '<div class="tbl-wrap"><table aria-label="Assessment calendar"><thead><tr><th>Due</th><th>Assessment</th><th>Type</th><th>Course</th><th>Weight</th><th>Progress</th><th></th></tr></thead><tbody>';
       grouped[month].forEach(function (e) {
@@ -270,7 +309,7 @@ function renderDeadlines(events) {
           '<td class="nowrap-cell">' +
           priBadge(p.label) +
           ' <button class="btn xs" data-act="event-edit" data-id="' +
-          e.id +
+          esc(e.id) +
           '">Open</button></td></tr>';
       });
       h += "</tbody></table></div>";
@@ -328,11 +367,11 @@ function renderReadings(readings) {
         '<td class="nowrap-cell">' +
         (r.status !== "done"
           ? '<button class="btn xs ok" data-act="reading-toggle" data-id="' +
-            r.id +
+            esc(r.id) +
             '">Done</button> '
           : "") +
         '<button class="btn xs" data-act="reading-edit" data-id="' +
-        r.id +
+        esc(r.id) +
         '">Edit</button></td></tr>';
     });
     h += "</tbody></table></div>";
@@ -401,40 +440,305 @@ function renderTables() {
   return h;
 }
 
-export function roadmap() {
-  const lessons = UI.lessons();
-  const events = UI.events();
-  const readings = UI.readings();
-  const currentWeek = Coach.currentWeek();
-  const tab = UIState.tab.roadmap || "roadmap";
+/**
+ * Render visual roadmap.sh-style curriculum tree (matching Image 3)
+ * @param {Object} course - Active course
+ * @param {Array} allLessons - Lessons/topics from syllabus
+ * @param {Array} allEvents - Course events/assessments
+ * @param {Array} allReadings - Course readings
+ * @returns {string} HTML markup
+ */
+function renderVisualRoadmapTree(
+  course,
+  allLessons,
+  allEvents,
+  allReadings,
+) {
+  if (!course) {
+    return (
+      '<div class="card">' +
+      empty(
+        "",
+        "No course selected",
+        "Select a course to view its curriculum roadmap.",
+        '<button type="button" class="btn primary mt" data-act="scope-clear-to-courses">View all courses</button>',
+      ) +
+      "</div>"
+    );
+  }
 
-  let h = pageHead(
-    "Lesson roadmap",
-    "Chronological topic outline with the deadlines, assessments and readings attached to each week.",
-    '<button class="btn sm" data-act="export-roadmap">Export outline</button>' +
-      '<button class="btn sm" data-act="go-import">Import syllabus</button>',
+  const courseLessons = (allLessons || []).filter(
+    (l) => l.courseId === course.id,
+  );
+  const courseEvents = (allEvents || []).filter(
+    (e) => e.courseId === course.id,
+  );
+  const courseReadings = (allReadings || []).filter(
+    (r) => r.courseId === course.id,
   );
 
-  h +=
-    '<div class="tabs" role="tablist" aria-label="Roadmap views">' +
-    tbtn("roadmap", "Weekly outline", tab) +
-    tbtn("deadlines", "Assessment calendar", tab) +
-    tbtn("readings", "Required readings", tab) +
-    tbtn("tables", "Extracted tables", tab) +
+  // Group lessons by week
+  const byWeek = groupBy(courseLessons, (l) => {
+    const w = Number(l.week);
+    return Number.isFinite(w) && w > 0 ? w : 1;
+  });
+  const weeks = Object.keys(byWeek)
+    .map(Number)
+    .filter((w) => Number.isFinite(w) && byWeek[w] && byWeek[w].length)
+    .sort((a, b) => a - b);
+
+  if (!courseLessons.length) {
+    return (
+      '<div class="roadmap-visual-wrapper">' +
+      '<div class="roadmap-tree-empty-box">' +
+      '<div class="empty-tree-icon">🗺️</div>' +
+      "<h3>No topics extracted yet for " +
+      esc(course.title || course.code || "this course") +
+      "</h3>" +
+      '<p class="small muted">Import a course syllabus (PDF, DOCX, or text) to automatically map weekly modules, extracted topics, and assessment milestones into this roadmap.</p>' +
+      '<div class="row gap mt">' +
+      '<button type="button" class="btn primary" data-act="go-import">Import syllabus</button>' +
+      '<button type="button" class="btn" data-act="lesson-new">+ Add topic manually</button>' +
+      "</div>" +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderTopicPill(l) {
+    return (
+      '<div class="roadmap-topic-pill' +
+      (l.done ? " is-done" : "") +
+      '">' +
+      '<span class="topic-pill-title">' +
+      esc(l.topic) +
+      "</span>" +
+      '<button type="button" class="roadmap-pill-chk' +
+      (l.done ? " done" : "") +
+      '" data-act="lesson-toggle" data-id="' +
+      esc(l.id) +
+      '" title="' +
+      (l.done ? "Mark topic as pending" : "Mark topic as covered") +
+      '" aria-label="Toggle topic coverage">' +
+      (l.done ? "✓" : "") +
+      "</button>" +
+      "</div>"
+    );
+  }
+
+  function renderEventPill(e) {
+    const dueTxt = e.due ? fmtDate(e.due, true) : "No deadline";
+    const weightTxt = e.weight != null ? " · " + e.weight + "%" : "";
+    return (
+      '<div class="roadmap-event-pill" data-act="event-edit" data-id="' +
+      esc(e.id) +
+      '" title="Open assessment details">' +
+      '<span class="event-pill-tag">Assessment</span>' +
+      '<div class="event-pill-title">' +
+      esc(e.title) +
+      "</div>" +
+      '<div class="event-pill-meta">' +
+      dueTxt +
+      weightTxt +
+      "</div>" +
+      "</div>"
+    );
+  }
+
+  function renderReadingPill(r) {
+    const pagesTxt = r.pages ? " (" + esc(r.pages) + ")" : "";
+    return (
+      '<div class="roadmap-reading-tag" title="' +
+      esc(r.title) +
+      '">' +
+      '<span class="reading-tag-icon" aria-hidden="true">📖</span>' +
+      '<span class="reading-tag-text">' +
+      esc(r.title) +
+      "</span>" +
+      (pagesTxt ? '<span class="reading-tag-pages">' + pagesTxt + "</span>" : "") +
+      "</div>"
+    );
+  }
+
+  let treeStepsHtml = "";
+  const midpoint = Math.floor(weeks.length / 2);
+
+  weeks.forEach((w, idx) => {
+    const group = byWeek[w] || [];
+    const isWeekDone = group.length > 0 && group.every((l) => l.done);
+    const weekEvents = courseEvents.filter((e) => e.week === w);
+    const weekReadings = courseReadings.filter((r) => r.week === w);
+
+    let leftPills = "";
+    let rightPills = "";
+    let leftLineStyle = "";
+    let rightLineStyle = "";
+
+    const hasEventsOrReadings = weekEvents.length > 0 || weekReadings.length > 0;
+
+    if (hasEventsOrReadings) {
+      // Balanced: Topics on one side, Assessments/Readings on the other
+      const isTopicsLeft = idx % 2 === 0;
+      const topicsHtml = group.map(renderTopicPill).join("");
+      const eventsHtml =
+        weekEvents.map(renderEventPill).join("") +
+        weekReadings.map(renderReadingPill).join("");
+
+      if (isTopicsLeft) {
+        leftPills = topicsHtml;
+        rightPills = eventsHtml;
+        leftLineStyle = " dotted";
+        rightLineStyle = " solid";
+      } else {
+        leftPills = eventsHtml;
+        rightPills = topicsHtml;
+        leftLineStyle = " solid";
+        rightLineStyle = " dotted";
+      }
+    } else if (group.length >= 2) {
+      // Multiple topics: split evenly across left and right
+      const mid = Math.ceil(group.length / 2);
+      leftPills = group.slice(0, mid).map(renderTopicPill).join("");
+      rightPills = group.slice(mid).map(renderTopicPill).join("");
+      leftLineStyle = " dotted";
+      rightLineStyle = " dotted";
+    } else {
+      // Exactly 1 topic: contextual schedule badge on the opposite side
+      const topicsHtml = group.map(renderTopicPill).join("");
+      const first = group[0];
+      const dateText =
+        first && first.start ? fmtDate(first.start, false) : "Syllabus Unit " + w;
+      const badgeHtml =
+        '<div class="roadmap-schedule-badge">' +
+        '<span class="schedule-badge-icon" aria-hidden="true">🎯</span>' +
+        '<div class="schedule-badge-content">' +
+        '<span class="schedule-badge-text">' +
+        esc(dateText) +
+        "</span>" +
+        '<span class="schedule-badge-sub">Core Objective · 1 Topic</span>' +
+        "</div>" +
+        "</div>";
+
+      if (idx % 2 === 0) {
+        leftPills = badgeHtml;
+        rightPills = topicsHtml;
+        leftLineStyle = " dotted";
+        rightLineStyle = " dotted";
+      } else {
+        leftPills = topicsHtml;
+        rightPills = badgeHtml;
+        leftLineStyle = " dotted";
+        rightLineStyle = " dotted";
+      }
+    }
+
+    // Midterm Divider (Image 3 style)
+    if (weeks.length >= 4 && idx === midpoint) {
+      treeStepsHtml +=
+        '<div class="roadmap-tree-divider">' +
+        '<div class="roadmap-divider-box">' +
+        '<span class="roadmap-divider-pill">Midterm Checkpoint</span>' +
+        '<p class="roadmap-divider-text">Verify that introductory topics are covered and preliminary coursework is submitted.</p>' +
+        '<button type="button" class="btn xs ghost" data-act="tab" data-view="courses" data-arg="deadlines">View assessment calendar →</button>' +
+        "</div>" +
+        "</div>";
+    }
+
+    // Module Row (The rail class ensures test compatibility)
+    treeStepsHtml +=
+      '<div class="roadmap-tree-step rail' +
+      (isWeekDone ? " week-completed" : "") +
+      '" id="roadmap-week-' +
+      w +
+      '">' +
+      // Left Column
+      '<div class="roadmap-step-col left">' +
+      '<div class="roadmap-branch-pills">' +
+      leftPills +
+      "</div>" +
+      (leftPills
+        ? '<div class="roadmap-branch-line' +
+          leftLineStyle +
+          '" aria-hidden="true"></div>'
+        : "") +
+      "</div>" +
+      // Center Spine Yellow Box Node (Image 3)
+      '<div class="roadmap-spine-node" id="roadmap-node-' +
+      w +
+      '">' +
+      '<span class="spine-node-title">Week ' +
+      w +
+      "</span>" +
+      (isWeekDone
+        ? '<span class="spine-done-pill" title="All topics covered">✓</span>'
+        : "") +
+      "</div>" +
+      // Right Column
+      '<div class="roadmap-step-col right">' +
+      (rightPills
+        ? '<div class="roadmap-branch-line' +
+          rightLineStyle +
+          '" aria-hidden="true"></div>'
+        : "") +
+      '<div class="roadmap-branch-pills">' +
+      rightPills +
+      "</div>" +
+      "</div>" +
+      "</div>";
+  });
+
+  // End of course endpoint
+  treeStepsHtml +=
+    '<div class="roadmap-tree-endpoint">' +
+    '<div class="roadmap-endpoint-badge">🏁 Final Evaluation &amp; Term Mastery</div>' +
     "</div>";
 
-  if (tab === "roadmap")
-    return h + renderWeeklyOutline(lessons, events, readings, currentWeek);
-  if (tab === "deadlines") return h + renderDeadlines(events);
-  if (tab === "readings") return h + renderReadings(readings);
-  return h + renderTables();
+  let h = '<div class="roadmap-visual-wrapper">';
 
-  function tbtn(id, label, active) {
-    return _tabBtn(id, label, active === id, "roadmap");
+  // Diagram Top Header: Legend on Left, Interactive Tip on Right (Image 3)
+  h += '<div class="roadmap-canvas-header">';
+  h += '<div class="roadmap-legend-card" role="region" aria-label="Roadmap legend">';
+  h += '<div class="roadmap-legend-row"><span class="legend-chk-dot">✓</span><span>Covered Topic</span></div>';
+  h += '<div class="roadmap-legend-row"><span class="legend-color-box yellow"></span><span>Core Module</span></div>';
+  h += '<div class="roadmap-legend-row"><span class="legend-color-box amber"></span><span>Extracted Topic</span></div>';
+  h += '<div class="roadmap-legend-row"><span class="legend-color-box blue"></span><span>Assessment / Milestone</span></div>';
+  h += '<div class="roadmap-legend-row"><span class="legend-reading-dot">📖</span><span>Required Reading</span></div>';
+  h += "</div>";
+
+  h += '<div class="roadmap-canvas-tip">';
+  h += '<span class="small muted">Click <strong class="purple-text">✓</strong> on any topic to track syllabus mastery. Click assessments for deadlines.</span>';
+  h += "</div>";
+  h += "</div>"; // closes .roadmap-canvas-header
+
+  // Visual Roadmap Tree Canvas
+  h += '<div class="roadmap-tree-canvas">';
+  h += '<div class="roadmap-canvas-spine-line" aria-hidden="true"></div>';
+  h += treeStepsHtml;
+  h += "</div>"; // closes .roadmap-tree-canvas
+
+  h += "</div>"; // closes .roadmap-visual-wrapper
+  return h;
+}
+
+export {
+  renderVisualRoadmapTree,
+  renderWeeklyOutline,
+  renderDeadlines,
+  renderReadings,
+  renderTables,
+};
+
+export function roadmap() {
+  if (!UIState.tab.courses) {
+    UIState.tab.courses =
+      UIState.courseId && UIState.courseId !== "all" ? "roadmap" : "courses";
   }
+  return courses();
 }
 
 export const roadmapView = {
-  title: "Lesson roadmap",
+  title: "Courses & Roadmap",
   fn: roadmap,
+  after: bindCoursesView,
 };
+

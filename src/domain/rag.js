@@ -9,6 +9,10 @@ import { sortBy } from "../utils/helpers.js";
 
 export const RAG = {};
 
+/* Paragraphs merge into one chunk until they reach chunkSize × MERGE_CEIL;
+   past it the segment is split on sentence boundaries. (CFG.rag.mergeCeil.) */
+const MERGE_CEIL = CFG.rag.mergeCeil || 1.7;
+
 RAG.STOP = (function () {
   const words =
     "a an the and or but if then than that this these those of to in on at by for with from as is are was were be been being it its into over under not no do does did done have has had will would can could should may might must about above after again against all am any because before below between both down during each few further here how i just me more most my no nor now off once only other our out own same she he they them we you your so such there their what when where which while who whom why s t dont isn t very s il re ve ll d m o y".split(
@@ -32,15 +36,42 @@ RAG.stem = function (t) {
     .replace(/s$/, "");
 };
 
+/**
+ * Tokenizer: lowercases, drops punctuation, stop-words and single characters,
+ * and stems what is left.
+ *
+ * A short number is kept only when it *follows* a word ("Week 3",
+ * "Chapter 12", "2024" is not kept on its own), because bare numbers are page
+ * numbers, dates and list markers; indexing them makes every chunk look like a
+ * match for any question containing a digit. Five-digit-plus runs are dropped
+ * even then - they are part numbers, not references.
+ */
 RAG.tokenize = function (s) {
-  return String(s || "")
+  const raw = String(s || "")
     .toLowerCase()
     .replace(/[^a-z0-9\s]/g, " ")
     .split(/\s+/)
     .filter(function (t) {
-      return t.length > 1 && !RAG.STOP[t] && !/^\d+$/.test(t);
-    })
-    .map(RAG.stem);
+      return t.length > 0;
+    });
+  const out = [];
+  let prevWasWord = false;
+  for (let i = 0; i < raw.length; i++) {
+    const t = raw[i];
+    if (/^\d+$/.test(t)) {
+      if (prevWasWord && t.length <= 4) out.push(t);
+      /* "3 4 5" is a list, not a reference - do not chain numbers. */
+      prevWasWord = false;
+      continue;
+    }
+    if (t.length <= 1 || RAG.STOP[t]) {
+      prevWasWord = false;
+      continue;
+    }
+    out.push(RAG.stem(t));
+    prevWasWord = true;
+  }
+  return out;
 };
 
 RAG.view = function (text) {
@@ -96,22 +127,25 @@ RAG.chunkRanges = function (text) {
     if (len > 30) out.push({ start: start, len: len });
   }
   let i = 0;
+  let carryStart = null; // where the next segment resumes (overlap carry)
   while (i < runs.length) {
-    let a = runs[i][0],
-      b = a,
+    let a = carryStart != null ? carryStart : runs[i][0];
+    carryStart = null;
+    while (a < norm.length && /\s/.test(norm.charAt(a))) a++;
+    let b = a,
       j = i;
     while (j < runs.length) {
       const end = runs[j][1];
       if (b > a && end - a > CFG.chunkSize) break;
       b = end;
       j++;
-      if (b - a >= CFG.chunkSize * 1.7) break;
+      if (b - a >= CFG.chunkSize * MERGE_CEIL) break;
     }
     if (j === i) {
       j = i + 1;
       b = runs[i][1];
     }
-    while (b - a > CFG.chunkSize * 1.7) {
+    while (b - a > CFG.chunkSize * MERGE_CEIL) {
       let cut = norm.lastIndexOf(". ", a + CFG.chunkSize);
       if (cut <= a + CFG.chunkSize * 0.4) cut = a + CFG.chunkSize;
       keep(a, cut + 1);
@@ -121,6 +155,20 @@ RAG.chunkRanges = function (text) {
     }
     keep(a, b);
     i = Math.max(i + 1, j - 1);
+    /* Overlap is a property of consecutive chunks, not only of the
+       over-ceiling sweep above: the next segment resumes `chunkOverlap`
+       characters before this one ends, so a sentence cut at the boundary
+       is retrievable from both neighbours. Skipped when the next segment
+       is too small to pay for the window — a chunk that is mostly a copy
+       of its neighbour would pollute the index, not improve it. */
+    const nextOwn = i < runs.length ? runs[i][1] - runs[i][0] : 0;
+    if (
+      CFG.chunkOverlap > 0 &&
+      b - a > CFG.chunkOverlap &&
+      nextOwn > CFG.chunkOverlap * 3
+    ) {
+      carryStart = b - CFG.chunkOverlap;
+    }
   }
   return out;
 };
@@ -161,13 +209,72 @@ RAG.reindexAll = function () {
     db.chunks = out;
     RAG.invalidate();
   } catch (_e) {
-    if (window.console) console.warn("RAG reindex failed", _e);
+    if (typeof console !== "undefined" && console.warn)
+      console.warn("RAG reindex failed", _e);
   }
   return out.length;
 };
 
 RAG.invalidate = function () {
   RAG._idx = null;
+};
+
+/**
+ * Incrementally update the index for a single document.
+ * @param {string} docId - Document ID
+ * @param {string} text - Full document text
+ * @param {boolean} isRemoval - If true, remove the document from index
+ */
+RAG.updateIndex = function (docId, text, isRemoval = false) {
+  const idx = RAG.index(); // ensures initialized
+  if (isRemoval) {
+    // Remove all chunks for this docId
+    Object.keys(idx.byId).forEach((cid) => {
+      if (idx.byId[cid].docId === docId) {
+        delete idx.byId[cid];
+        delete idx.len[cid];
+        idx.n--;
+        Object.keys(idx.post).forEach((term) => delete idx.post[term][cid]);
+      }
+    });
+    // Recalc avg
+    const total = Object.values(idx.len).reduce((a, b) => a + b, 0);
+    idx.avg = idx.n ? total / idx.n : 1;
+    return;
+  }
+  // Add/update chunks for this document
+  const ranges = RAG.chunkRanges(text);
+  ranges.forEach((r, i) => {
+    const cid = docId + "#" + i;
+    const chunkText = text.substr(r.start, r.len);
+    const toks = RAG.tokenize(chunkText);
+    if (!toks.length) return;
+    // Remove old chunk if exists
+    if (idx.byId[cid]) {
+      Object.keys(idx.post).forEach((term) => delete idx.post[term][cid]);
+      idx.n--;
+    }
+    idx.byId[cid] = {
+      id: cid,
+      docId,
+      start: r.start,
+      len: r.len,
+      /* Incremental path: the supplied text may not be persisted yet, so
+         this entry keeps its own copy (one document, not the library). */
+      text: chunkText,
+    };
+    idx.len[cid] = toks.length;
+    idx.n++;
+    const tf = {};
+    toks.forEach((t) => (tf[t] = (tf[t] || 0) + 1));
+    Object.keys(tf).forEach((t) => {
+      if (!idx.post[t]) idx.post[t] = {};
+      idx.post[t][cid] = tf[t];
+    });
+  });
+  // Recalc avg
+  const total = Object.values(idx.len).reduce((a, b) => a + b, 0);
+  idx.avg = idx.n ? total / idx.n : 1;
 };
 
 RAG.index = function () {
@@ -187,7 +294,20 @@ RAG.index = function () {
   chunks.forEach(function (c) {
     const text = RAG.chunkTextOf(c);
     if (!text) return;
-    idx.byId[c.id] = Object.assign({}, c, { text: text });
+    /* The entry carries the chunk's coordinates, not a second copy of its
+       text: reading `.text` resolves lazily through the document store, so
+       the index no longer doubles every document's footprint in memory.
+       (defineProperty, not Object.assign — assign would invoke the getter
+       and materialise the string immediately.) */
+    const entry = Object.assign({}, c);
+    Object.defineProperty(entry, "text", {
+      get: function () {
+        return RAG.chunkTextOf(c);
+      },
+      enumerable: true,
+      configurable: true,
+    });
+    idx.byId[c.id] = entry;
     const toks = RAG.tokenize(text);
     if (!toks.length) return;
     indexed++;
@@ -229,7 +349,17 @@ RAG.search = function (query, opts) {
       if (opts.docIds.indexOf(c.docId) !== -1) allowed[c.id] = 1;
     });
   }
+  /* Document-order results are only defensible when the student narrowed the
+     corpus themselves: "what is in this PDF?" is a legitimate read of a file
+     they explicitly selected, even when no term matches it. Unscoped, an
+     unmatched query must return nothing - labelling arbitrary chunks
+     [1]...[k] is exactly how a retrieval miss becomes a confident citation. */
+  const scoped = !!(
+    (opts.docIds && opts.docIds.length) ||
+    (opts.courseId && opts.courseId !== "all")
+  );
   const fallback = function () {
+    if (!scoped) return [];
     return Object.keys(idx.byId)
       .filter(function (cid) {
         return !allowed || allowed[cid];
@@ -280,9 +410,19 @@ RAG.search = function (query, opts) {
   if (!Object.keys(scores).length) {
     return fallback();
   }
-  return sortBy(Object.keys(scores), function (cid) {
+  const ranked = sortBy(Object.keys(scores), function (cid) {
     return -scores[cid];
-  })
+  });
+  /* Relevance floor: a hit scoring under `minRelative` of the best match is
+     tail noise rather than a source, so it never becomes a numbered citation. */
+  const best = scores[ranked[0]] || 0;
+  const relative =
+    opts.minRelative != null ? opts.minRelative : CFG.rag.minRelative;
+  const floor = best * (relative > 0 ? relative : 0);
+  return ranked
+    .filter(function (cid) {
+      return scores[cid] >= floor;
+    })
     .slice(0, k)
     .map(function (cid) {
       return Object.assign(
@@ -335,12 +475,14 @@ RAG.extract = function (question, chunks, maxSentences) {
 RAG.context = function (question, opts) {
   opts = opts || {};
   try {
-    const chunks = RAG.search(question, {
-      k: opts.k || 5,
-      courseId: opts.courseId,
-      docIds: opts.docIds,
-    });
-    const budget = CFG.maxChatChars;
+    const chunks = Array.isArray(opts.chunks)
+      ? opts.chunks
+      : RAG.search(question, {
+          k: opts.k || 5,
+          courseId: opts.courseId,
+          docIds: opts.docIds,
+        });
+    const budget = CFG.maxContextChars || CFG.maxChatChars;
     let used = 0;
     const picked = [];
     chunks.forEach(function (c) {
@@ -355,6 +497,7 @@ RAG.context = function (question, opts) {
         docName: c.docName,
         idx: c.idx,
         courseId: c.courseId,
+        score: typeof c.score === "number" ? c.score : 0,
         snippet:
           c.text.slice(0, CFG.rag.snippetLength) +
           (c.text.length > CFG.rag.snippetLength ? "…" : ""),

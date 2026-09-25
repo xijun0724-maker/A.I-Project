@@ -6,6 +6,7 @@
  * This module re-exports it for backward compatibility.
  */
 
+import { toastSaved } from "../utils/dom.js";
 import {
   UIState,
   courses,
@@ -41,6 +42,7 @@ export const UI = {
   remainingMinutes,
   state: UIState,
   draft: null,
+  toastSaved,
 };
 
 export { UIState };

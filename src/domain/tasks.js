@@ -139,6 +139,23 @@ export function reason(e) {
 export function priority(e) {
   if (!e)
     return { score: 0, urgency: 0, weight: 0, effortScore: 0, label: "Low" };
+  if (e.priority) {
+    const pMap = {
+      Critical: 90,
+      High: 70,
+      Medium: 50,
+      Low: 30,
+    };
+    if (pMap[e.priority] !== undefined) {
+      return {
+        score: pMap[e.priority],
+        urgency: 0.5,
+        weight: 0.5,
+        effortScore: 0.5,
+        label: e.priority,
+      };
+    }
+  }
   const w = CFG.priorityWeights || { urgency: 0.4, weight: 0.35, effort: 0.25 };
   const n = daysUntil(e.due);
   const urgency = n === null ? 0.3 : clamp(1 - n / 14, 0, 1);

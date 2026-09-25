@@ -1,84 +1,109 @@
 /**
- * Secure storage for sensitive data (API keys)
- * Keeps secrets in sessionStorage (cleared on tab close) instead of localStorage.
+ * Secure storage for sensitive data (API keys).
+ *
+ * The key is held in sessionStorage for the current tab only, with a
+ * per-provider record, last-used audit and a TTL. `stripKey()` removes it
+ * from every localStorage write, so it never reaches disk.
+ *
+ * Note: the value is not encrypted. A browser cannot keep a secret from
+ * same-origin script, and the guard that actually matters is not persisting
+ * the key at all - which `stripKey()` enforces on every save path.
  */
 
-const SESSION_KEY = "journeyai.secure";
+const SESSION_KEY = "journeyai.secure.v2";
+const KEY_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** Get the secure store object from sessionStorage */
+function getSessionStorage() {
+  return typeof globalThis !== "undefined" ? globalThis.sessionStorage : null;
+}
+
 function getStore() {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const ss = getSessionStorage();
+    if (!ss) return { keys: {}, meta: {} };
+    const raw = ss.getItem(SESSION_KEY);
+    if (!raw) return { keys: {}, meta: {} };
+    const parsed = JSON.parse(raw);
+    if (parsed.version !== 2) return { keys: {}, meta: {} };
+    return parsed;
   } catch (_e) {
-    return {};
+    return { keys: {}, meta: {} };
   }
 }
 
-/** Save the secure store object to sessionStorage */
 function saveStore(obj) {
   try {
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(obj));
+    const ss = getSessionStorage();
+    if (!ss) return;
+    ss.setItem(SESSION_KEY, JSON.stringify({ version: 2, ...obj }));
   } catch (_e) {
-    // sessionStorage full or blocked — degrade gracefully
+    // degraded: the key stays in memory for this page load only
   }
 }
 
-/** Store an API key for a given provider */
-export function setApiKey(key, provider) {
+function now() {
+  return Date.now();
+}
+
+export function setApiKey(key, provider = "gemini") {
   const store = getStore();
-  const p = provider || "gemini";
-  if (key) {
-    store[p + "_apiKey"] = key;
-    if (p === "gemini") store.apiKey = key;
+  const p = provider.toLowerCase();
+  if (key && key.trim().length > 10) {
+    store.keys[p] = {
+      value: key.trim(),
+      created: now(),
+      lastUsed: now(),
+      provider: p,
+    };
+    if (p === "gemini") store.keys.apiKey = store.keys[p];
   } else {
-    delete store[p + "_apiKey"];
-    if (p === "gemini") delete store.apiKey;
+    delete store.keys[p];
+    if (p === "gemini") delete store.keys.apiKey;
   }
   saveStore(store);
 }
 
-/** Retrieve the stored API key for a given provider */
-export function getApiKey(provider) {
+export function getApiKey(provider = "gemini") {
   const store = getStore();
-  const p = provider || "gemini";
-  return store[p + "_apiKey"] || (p === "gemini" ? store.apiKey : "") || "";
+  const p = provider.toLowerCase();
+  const entry = store.keys[p] || (p === "gemini" ? store.keys.apiKey : null);
+  if (!entry) return "";
+  if (now() - entry.created > KEY_TTL_MS) {
+    clearApiKey(provider);
+    return "";
+  }
+  entry.lastUsed = now();
+  saveStore(store);
+  return entry.value;
 }
 
-/** Clear the stored API key for a given provider */
-export function clearApiKey(provider) {
+export function clearApiKey(provider = "gemini") {
   const store = getStore();
-  const p = provider || "gemini";
-  delete store[p + "_apiKey"];
-  if (p === "gemini") delete store.apiKey;
+  const p = provider.toLowerCase();
+  delete store.keys[p];
+  if (p === "gemini") delete store.keys.apiKey;
   saveStore(store);
 }
 
-/** Check if an API key is stored for a given provider */
-export function hasApiKey(provider) {
-  const store = getStore();
-  const p = provider || "gemini";
-  return !!(store[p + "_apiKey"] || store.apiKey);
+export function hasApiKey(provider = "gemini") {
+  return !!getApiKey(provider);
 }
 
-/**
- * Patch the Store module to keep apiKey out of localStorage.
- * Call this after Store.load() to hydrate the in-memory key from sessionStorage.
- * Falls back to the built-in default key when no user key is stored.
- */
 export function hydrateKey(settings) {
-  if (settings) {
-    const provider = settings.provider || "gemini";
-    settings.apiKey = getApiKey(provider) || "";
-  }
+  if (!settings) return;
+  const provider = settings.provider || "gemini";
+  const key = getApiKey(provider);
+  if (key) settings.apiKey = key;
+  else delete settings.apiKey;
 }
 
-/**
- * Patch the Store module to strip apiKey before persisting to localStorage.
- * Call this before Store.persist() to remove the key from the serialized data.
- */
 export function stripKey(db) {
-  if (db && db.settings) {
-    db.settings.apiKey = "";
-  }
+  if (!db || !db.settings) return db;
+  const {
+    apiKey: _apiKey,
+    gemini_apiKey: _gemini_apiKey,
+    openrouter_apiKey: _openrouter_apiKey,
+    ...rest
+  } = db.settings;
+  return { ...db, settings: { ...rest, apiKey: "" } };
 }

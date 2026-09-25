@@ -131,11 +131,3 @@ export function mdToHtml(src) {
   if (inCode) out.push("</code></pre>");
   return out.join("\n");
 }
-
-// Export as namespace for backward compatibility
-export const Markdown = {
-  inline,
-  mdToHtml,
-};
-
-export default Markdown;

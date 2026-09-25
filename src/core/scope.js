@@ -13,24 +13,70 @@ import { Store } from "./store.js";
 import { Tasks } from "../domain/tasks.js";
 import { sortBy } from "../utils/helpers.js";
 
-/**
- * Application UI state — single source of truth.
- */
-export const UIState = {
+const listeners = new Map();
+
+function notify(path, value) {
+  (listeners.get(path) || []).forEach(fn => {
+    try { fn(value); } catch (e) { console.error("UIState listener error", e); }
+  });
+}
+
+function setPath(obj, path, value) {
+  const keys = path.split(".");
+  const root = { ...obj };
+  let cur = root;
+  for (let i = 0; i < keys.length - 1; i++) {
+    cur[keys[i]] = { ...cur[keys[i]] };
+    cur = cur[keys[i]];
+  }
+  cur[keys[keys.length - 1]] = value;
+  return root;
+}
+
+// Initial state
+let _state = {
   view: "dashboard",
   courseId: "all",
   tab: {},
   chatPending: false,
   chatSources: [],
+  /* A study plan the AI proposed and the student has not decided on yet.
+     Deliberately not persisted: after a reload it is re-asked, not acted on. */
+  planProposal: null,
   chatSourcesOpen: true,
   pendingPrompt: null,
   draft: null,
 };
 
+export const UIState = new Proxy(_state, {
+  get(target, prop) {
+    if (prop === "subscribe") return (path, fn) => {
+      if (!listeners.has(path)) listeners.set(path, new Set());
+      listeners.get(path).add(fn);
+      return () => listeners.get(path).delete(fn);
+    };
+    if (prop === "set") return (path, value) => {
+      _state = setPath(_state, path, value);
+      notify(path, value);
+      return _state;
+    };
+    /* Read the *live* root, not the proxy target. `setPath` replaces `_state`
+       with a copy, so reading the target would silently return the pre-`set`
+       value forever — `UIState.chatPending` always false, `plannerPreview`
+       always undefined. */
+    return _state[prop];
+  },
+  set(target, prop, value) {
+    _state[prop] = value;
+    notify(prop, value);
+    return true;
+  },
+});
+
+// Scope helpers (pure, no mutation)
 export function courses() {
   let list = Store.db.courses.slice();
-  if (UIState.courseId && UIState.courseId !== "all")
-    list = list.filter((c) => c.id === UIState.courseId);
+  if (UIState.courseId && UIState.courseId !== "all") list = list.filter((c) => c.id === UIState.courseId);
   return list;
 }
 

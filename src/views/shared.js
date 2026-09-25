@@ -19,12 +19,13 @@ import {
   remainingMinutes,
 } from "../core/scope.js";
 import { esc } from "../utils/helpers.js";
-import { toast } from "../utils/dom.js";
+import { toastSaved } from "../utils/dom.js";
 import {
   bar as _bar,
   ring as _ring,
   empty as _empty,
   priBadge as _priBadge,
+  statusBadge as _statusBadge,
   eventBadge as _eventBadge,
   courseChip as _courseChip,
   dueLabel as _dueLabel,
@@ -45,7 +46,7 @@ function courseSelectOptions(selected, allowAll) {
   Store.db.courses.forEach((c) => {
     h +=
       '<option value="' +
-      c.id +
+      esc(c.id) +
       '"' +
       (selected === c.id ? " selected" : "") +
       ">" +
@@ -55,42 +56,15 @@ function courseSelectOptions(selected, allowAll) {
   return h;
 }
 
-function toastSaved(msg) {
-  toast(msg || "Saved.", "ok");
-}
-
-/** Render a standard page header with title, lead text, and optional right-side content. */
 export function pageHead(title, lead, right) {
-  let h = '<div class="page-head"><div><h1>' + title + "</h1>";
-  if (lead) h += '<p class="lead">' + lead + "</p>";
+  let h =
+    '<div class="page-head"><div><h1>' + esc(title == null ? "" : title) + "</h1>";
+  if (lead) h += '<p class="lead">' + esc(lead) + "</p>";
   h += "</div>";
   if (right) h += '<span class="spacer"></span>' + right;
   h += "</div>";
   return h;
 }
-
-export const Shared = {
-  courses,
-  courseIds,
-  inScope,
-  events,
-  lessons,
-  readings,
-  docs,
-  eventProgress,
-  remainingMinutes,
-  typeMeta,
-  priBadge: _priBadge,
-  eventBadge: _eventBadge,
-  courseChip: _courseChip,
-  bar: _bar,
-  ring: _ring,
-  empty: _empty,
-  courseSelectOptions,
-  dueLabel: _dueLabel,
-  toastSaved,
-  statBox: _statBox,
-};
 
 export {
   courses,
@@ -104,6 +78,7 @@ export {
   remainingMinutes,
   typeMeta,
   _priBadge as priBadge,
+  _statusBadge as statusBadge,
   _eventBadge as eventBadge,
   _courseChip as courseChip,
   _bar as bar,
@@ -115,5 +90,3 @@ export {
   _statBox as statBox,
   _tabBtn as tabBtn,
 };
-
-export default Shared;

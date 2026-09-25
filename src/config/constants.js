@@ -3,14 +3,28 @@
  * Centralizes all magic numbers, provider definitions, and app settings.
  */
 
+const MAX_CHAT_CHARS = 20000;
+
+/** Canonical document-kind labels (import picker, library badges, doc modal). */
+export const KIND_LABEL = {
+  syllabus: "Syllabus",
+  notes: "Lecture notes",
+  textbook: "Textbook",
+  brief: "Assignment brief",
+  other: "Other document",
+};
+
 export const CFG = {
   storageKey: "journeyai.db.v1",
   schemaVersion: 4,
   maxDocChars: 300000,
   chunkSize: 900,
   chunkOverlap: 150,
-  maxChatChars: 20000,
+  maxChatChars: MAX_CHAT_CHARS,
   maxHistoryChars: 8000,
+  // Retrieved passages get their own budget (40% of the chat budget), so
+  // context and conversation history cannot starve each other.
+  maxContextChars: Math.floor(MAX_CHAT_CHARS * 0.4),
 
   gemini: {
     model: "gemini-2.5-flash",
@@ -171,12 +185,36 @@ export const CFG = {
     maxBytes: 5242880, // ~5 MB browser storage cap
   },
 
+  // Study-plan agent (tool loop)
+  agent: {
+    maxIters: 5,
+    maxToolResultChars: 4000,
+    maxWallClockMs: 120000, // hard ceiling on a whole agent run (6 calls x 110s worst case)
+    maxRepeats: 2, // identical consecutive tool calls before the loop gives up
+  },
+
   // RAG tuning
   rag: {
     bm25k1: 1.5,
     bm25b: 0.75,
     phraseBonus: 2.5,
     snippetLength: 420,
+    // Paragraphs are merged into one chunk until they reach chunkSize ×
+    // mergeCeil; past it the segment is split on sentence boundaries.
+    mergeCeil: 1.7,
+    // Relevance floor, as a fraction of the best hit: anything under 10% of it
+    // is tail noise, not a source. Relative rather than absolute so a
+    // one-document library is never zeroed out (its only hit *is* the best
+    // hit). Pass `minRelative: 0` to switch the floor off.
+    minRelative: 0.1,
+    hybrid: {
+      blend: 0.35, // weight of cosine vs BM25 after normalisation (0 = pure BM25)
+      candidateFactor: 3, // BM25 candidates to re-rank = k * factor
+      maxCache: 256, // content-hash LRU size for embedding vectors
+      dim: 384, // expected embedding dimension (all-MiniLM-L6-v2)
+      model: "Xenova/all-MiniLM-L6-v2",
+      cdn: "https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.7.2/dist/transformers.min.js",
+    },
   },
 
   // Planner

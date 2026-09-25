@@ -17,17 +17,29 @@ export function createBlankDB() {
     version: CFG.schemaVersion,
     settings: {
       provider: "gemini",
-      baseUrl: CFG.gemini.baseUrl,
       model: CFG.gemini.model,
       apiKey: "",
       aiEnabled: true,
       termStart: dateOnly(termStart),
       termEnd: dateOnly(termEnd),
+      academicYear: "2026–2027",
+      termName: "1st Term",
       studyWeekday: 2,
       studyWeekend: 4,
       plannerWeeks: 6,
+      userName: "",
+      hybridRAG: false,
+      syllabusStandard: "pnu-cmi-teacher-education-2025",
+      calendarStartOfWeek: 1,
+      calendarMaxEvents: 4,
+      calendarTimeFormat: "12h",
+      calendarShowMilestones: true,
+      calendarShowExams: true,
+      calendarShowAssignments: true,
+      calendarShowOther: true,
     },
     courses: [],
+    academicCalendars: [],
     documents: [],
     events: [],
     lessons: [],
@@ -61,7 +73,11 @@ export const MIGRATIONS = {
 };
 
 /**
- * Apply schema migrations
+ * Apply schema migrations.
+ * Returns null when the data must NOT be used: a newer-than-supported
+ * schema, or a migration that threw (half-migrated data is not safe to
+ * mark current). Callers must quarantine the stored bytes rather than
+ * overwrite them.
  */
 export function migrateSchema(d) {
   const from = parseInt(d.version, 10) || 1;
@@ -72,7 +88,9 @@ export function migrateSchema(d) {
       try {
         d = MIGRATIONS[v](d) || d;
       } catch (e) {
-        if (window.console) console.warn("Migration to v" + v + " failed", e);
+        if (typeof console !== "undefined" && console.warn)
+          console.warn("Migration to v" + v + " failed - data quarantined", e);
+        return null;
       }
     }
   }

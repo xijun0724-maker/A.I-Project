@@ -32,6 +32,45 @@ export function esc(s) {
 }
 
 /**
+ * Sanitize a URL destined for CSS url(...) or a background-image sink.
+ * Allows only data:image, http(s), same-origin absolute paths, and blob.
+ * Strips characters that could break out of the url() token.
+ * @param {string} url
+ * @returns {string} Safe URL, or "" when the value is not allowed
+ */
+export function safeCssUrl(url) {
+  const s = String(url == null ? "" : url).trim();
+  if (!s) return "";
+  const allowed =
+    /^data:image\//i.test(s) ||
+    /^https?:\/\//i.test(s) ||
+    /^\/(?!\/)/.test(s) ||
+    /^blob:/.test(s) ||
+    /^\.\.?\//.test(s);
+  if (!allowed) return "";
+  return s.replace(/["'\\)<>\s]/g, "");
+}
+
+/**
+ * Sanitize a color value destined for an inline style sink.
+ * Allows hex, rgb/rgba, hsl/hsla, CSS variables, and simple named colors.
+ * @param {string} c
+ * @returns {string} Safe color, or a neutral fallback
+ */
+export function safeColor(c) {
+  const s = String(c == null ? "" : c).trim();
+  if (!s) return "";
+  if (/^#[0-9a-f]{3,8}$/i.test(s)) return s;
+  if (/^rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*(,\s*[\d.]+\s*)?\)$/i.test(s))
+    return s;
+  if (/^hsla?\(\s*[\d.]+(\w+)?\s*,\s*[\d.]+%\s*,\s*[\d.]+%\s*(,\s*[\d.]+\s*)?\)$/i.test(s))
+    return s;
+  if (/^var\(--[a-z0-9-]+\)$/i.test(s)) return s;
+  if (/^[a-z]{3,20}$/i.test(s)) return s;
+  return "";
+}
+
+/**
  * Clamp a number between min and max values
  * @param {number} n - Number to clamp
  * @param {number} a - Min value
@@ -182,6 +221,8 @@ export function csv(rows) {
 export const U = {
   uid,
   esc,
+  safeCssUrl,
+  safeColor,
   clamp,
   sum,
   uniq,

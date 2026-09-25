@@ -74,18 +74,50 @@ describe("toast()", () => {
     const container = document.getElementById("toasts");
     expect(container).toBeTruthy();
     expect(container.innerHTML).toContain("Hello!");
+    expect(container.querySelector(".toast-item.ok")).toBeTruthy();
+    expect(container.querySelector(".message").textContent).toContain("Hello!");
   });
 
   it("applies the type class", () => {
     dom.toast("Warning", "warn");
     const container = document.getElementById("toasts");
-    expect(container.innerHTML).toContain("warn");
+    expect(container.querySelector(".toast-item.warn")).toBeTruthy();
   });
 
   it("defaults to info type", () => {
     dom.toast("Info message");
     const container = document.getElementById("toasts");
-    expect(container.innerHTML).toContain("info");
+    expect(container.querySelector(".toast-item.info")).toBeTruthy();
+  });
+
+  it("renders the optional title when provided", () => {
+    dom.toast("Something failed", "bad", "Import error");
+    const container = document.getElementById("toasts");
+    expect(container.querySelector(".title").textContent).toBe("Import error");
+    expect(container.querySelector(".message").textContent).toContain(
+      "Something failed",
+    );
+  });
+
+  it("escapes HTML in the message via textContent", () => {
+    dom.toast("<img src=x onerror=alert(1)>", "ok");
+    const container = document.getElementById("toasts");
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector(".message").textContent).toContain(
+      "<img",
+    );
+  });
+
+  it("renders a labelled close button that removes the toast", () => {
+    dom.toast("Dismiss me", "ok");
+    const container = document.getElementById("toasts");
+    const item = container.querySelector(".toast-item");
+    const close = item.querySelector("button.close");
+    expect(close).toBeTruthy();
+    expect(close.getAttribute("aria-label")).toMatch(/dismiss/i);
+    close.click();
+    /* dismiss() fades then removes; the handler runs immediately */
+    expect(item.style.opacity).toBe("0");
   });
 
   it("does nothing when #toasts container is missing", () => {

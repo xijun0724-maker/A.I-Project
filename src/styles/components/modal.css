@@ -1,0 +1,141 @@
+/* ================================================================ JOURNEY A.I — Modal & Toast Components Clean, centered dialog windows with glassmorphic backdrop ================================================================ */ /* ── Modal Root & Backdrop Scrim ───────────────────────────────── */ #modalRoot{
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}#modalRoot.open{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}.scrim{
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: scrim-in var(--duration-fast) var(--ease-out-expo);
+  z-index: 1;
+}[data-theme="dark"] .scrim{
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+}
+
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}/* ── Modal Dialog Box ──────────────────────────────────────────── */ .modal{
+  position: relative;
+  z-index: 2;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: var(--rounded-lg);
+  box-shadow: var(--shadow-elevated);
+  max-width: 640px;
+  width: 100%;
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modal-enter var(--duration-normal) var(--ease-out-expo);
+  outline: none;
+}.modal.wide{
+  max-width: 860px;
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}/* ── Modal Header, Body, Footer (.m-head, .m-body, .m-foot) ────── */ .m-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet);
+  flex-shrink: 0;
+}.m-head h2{
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--ink);
+}.m-head .x{
+  width: 32px;
+  height: 32px;
+  border-radius: var(--rounded-md);
+  border: none;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  line-height: 1;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}.m-head .x:hover{
+  background: var(--paper-2);
+  color: var(--ink);
+}.m-body, .modal-body{
+  padding: 22px;
+  overflow-y: auto;
+  flex: 1;
+}.m-foot{
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 14px 22px;
+  border-top: 1px solid var(--rule);
+  background: var(--sheet);
+  flex-shrink: 0;
+}/* ── Toast Notifications ───────────────────────────────────────── */ .toast{
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}.toast-item{
+  pointer-events: auto;
+  padding: 12px 16px;
+  border-radius: var(--rounded-md);
+  box-shadow: var(--shadow-elevated);
+  border: 1px solid var(--rule);
+  background: var(--sheet);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 280px;
+  max-width: 420px;
+  animation: toast-in 0.3s var(--ease-out-expo);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}.toast-item.ok{ border-color: var(--ok); }.toast-item.warn{ border-color: var(--warn); }.toast-item.bad{ border-color: var(--error); }.toast-item.info{ border-color: var(--info); }.toast-item .icon{ flex: 0 0 auto; }.toast-item .content{ flex: 1; min-width: 0; }.toast-item .title{ font-weight: 600; font-size: 14px; }.toast-item .message{ font-size: 13px; color: var(--ink-2); margin-top: 2px; }.toast-item .close{ flex: 0 0 auto; color: var(--ink-3); cursor: pointer; }/* ── Event & To-Do Modal Form Styles ───────────────────────────── */ .event-modal-content{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}.event-modal-content .fld{
+  margin-bottom: 0;
+}.event-modal-content .grid{
+  gap: 12px;
+}.event-modal-content input, .event-modal-content select, .event-modal-content textarea{
+  padding: 9px 12px;
+  font-size: 13.5px;
+}

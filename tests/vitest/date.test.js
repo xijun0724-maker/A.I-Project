@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DAY, iso, dateOnly, fromIso, startOfDay, addDays, daysUntil, fmtDate, rel, mondayOf, weekKey, parseDate, parseTime, fmtDay } from '../../src/utils/date.js';
+import { DAY, iso, dateOnly, fromIso, startOfDay, addDays, daysUntil, fmtDate, fmtTime, rel, mondayOf, weekKey, parseDate, parseTime, fmtDay } from '../../src/utils/date.js';
 
 describe('DAY constant', () => {
   it('equals 86400000 (ms in a day)', () => {
@@ -117,6 +117,25 @@ describe('fmtDate', () => {
 
   it('returns "No date" for null', () => {
     expect(fmtDate(null)).toBe('No date');
+  });
+});
+
+describe('fmtTime', () => {
+  it('formats ISO time to 12h clock string by default', () => {
+    expect(fmtTime('2026-09-24T23:59')).toBe('11:59 PM');
+    expect(fmtTime('2026-09-24T14:30:00Z')).toBe('2:30 PM');
+    expect(fmtTime('2026-09-24T09:05')).toBe('9:05 AM');
+    expect(fmtTime('2026-09-24T00:00')).toBe('12:00 AM');
+  });
+
+  it('formats 24h when specified', () => {
+    expect(fmtTime('2026-09-24T23:59', '24h')).toBe('23:59');
+  });
+
+  it('returns empty string for null or date without time', () => {
+    expect(fmtTime(null)).toBe('');
+    expect(fmtTime('2026-09-24')).toBe('');
+    expect(fmtTime('')).toBe('');
   });
 });
 

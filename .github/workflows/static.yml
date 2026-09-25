@@ -22,12 +22,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-# Gate: nothing deploys unless lint, tests and the production build all pass.
-# Pages serves this repo as raw source (index.html loads src/main.js as an ES
-# module), so a dangling import blanks the live site. Only the build catches
-# that, which is why this job exists. The build output is NOT uploaded — the
-# deploy job below publishes the working tree that the gate just verified.
-verify:
+  # Gate: nothing deploys unless lint, tests and the production build all pass.
+  # Pages serves this repo as raw source (index.html loads src/main.js as an ES
+  # module), so a dangling import blanks the live site. Only the build catches
+  # that, which is why this job exists. The build output is NOT uploaded — the
+  # deploy job below publishes the working tree that the gate just verified.
+  verify:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

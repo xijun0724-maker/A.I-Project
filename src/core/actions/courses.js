@@ -291,8 +291,6 @@ export function loadMoodleSample() {
   }
 }
 
-export { _modal as openModal };
-
 export const courseModal = (...args) => _modal("courseModal", ...args);
 export const eventModal = (...args) => _modal("eventModal", ...args);
 export const lessonModal = (...args) => _modal("lessonModal", ...args);

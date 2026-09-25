@@ -196,6 +196,7 @@ export function settings() {
     '<button class="btn" data-act="data-export">Export everything (JSON)</button>' +
     '<button class="btn" data-act="data-import">Import a backup</button>' +
     '<button class="btn" data-act="demo-load">Import course file</button>' +
+    '<button class="btn" data-act="term-load">Load Term 2 syllabi (12 weeks)</button>' +
     '<button class="btn danger" data-act="data-reset">Reset all data</button>' +
     "</div>" +
     '<p class="hint">Everything lives in this browser. Export a JSON backup before clearing site data or switching devices.</p></div>';

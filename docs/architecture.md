@@ -1,40 +1,60 @@
-# Journey A.I — Architecture
+# Journey A.I — Architecture (layer summary)
+
+> The root `ARCHITECTURE.md` is the source of truth for the stack and the
+> refactor baseline. This page is the short module-layer tour; the audit in
+> `docs/audit-2026-09-23.md` records how each claim here was verified and what
+> has been fixed since.
 
 ## Overview
 
-Journey A.I is a single-page web application built with vanilla JavaScript (ES2022) and zero runtime dependencies. All data persists in `localStorage`. AI features connect to OpenAI-compatible APIs but have deterministic offline fallbacks.
+Journey A.I is a single-page web app in vanilla JavaScript (ES modules) with
+**zero runtime npm dependencies** and **no backend**. AI calls go directly
+from the page to **Gemini or OpenRouter** over `fetch()` — there is no
+OpenAI-compatible layer, no SDK and no proxy. Every AI path has a deterministic
+offline fallback, so the app is fully usable with no key and no network.
+
+Persistence is dual-layer: `localStorage` is the synchronous bootstrap path,
+mirrored to IndexedDB for capacity and recovery. API keys live in
+`sessionStorage` only.
 
 ## Module Layers
 
 ```
 ┌─────────────────────────────────────────────┐
-│  index.html (SPA Shell + CDN Libraries)     │
+│  index.html (SPA shell, CSP, service worker)│
 ├─────────────────────────────────────────────┤
-│  src/main.js (Entry Point)                  │
+│  src/main.js (entry point)                  │
 ├─────────────────────────────────────────────┤
-│  src/app/bootstrap.js (Startup, Wiring)     │
+│  src/app/ (bootstrap, chrome, lifecycle,    │
+│            actions-delegation, focus-trap)  │
 ├─────────────────────────────────────────────┤
-│  src/core/ (Router, State, Store, Actions)  │
+│  src/core/ (router, state/scope, store,     │
+│             idb, actions/ — dispatch)       │
 ├─────────────────────────────────────────────┤
-│  src/views/ (12 View Renderers)             │
+│  src/views/ (screen renderers + modals/)    │
 ├─────────────────────────────────────────────┤
-│  src/domain/ (Business Logic)               │
-│  ├── NLP (syllabus parsing)                 │
-│  ├── RAG (BM25 document retrieval)          │
+│  src/domain/ (business logic)               │
+│  ├── NLP (deterministic syllabus parsing)   │
+│  ├── RAG (BM25 retrieval, rag-embeddings    │
+│  │        adds optional ONNX hybrid re-rank)│
 │  ├── Tasks (decomposition, priority)        │
-│  ├── Planner (study scheduling)             │
-│  ├── Coach (recommendations, analytics)     │
+│  ├── Planner (scheduling; preview/commit)   │
+│  ├── Coach (recommendations, activity)      │
 │  ├── Dashboard (KPIs, charts)               │
 │  └── Pipeline (document import)             │
 ├─────────────────────────────────────────────┤
-│  src/ai/ (OpenAI-compatible chat client)    │
+│  src/ai/ (client: Gemini/OpenRouter fetch;  │
+│  agent: bounded tool loop; prompts; offline)│
 ├─────────────────────────────────────────────┤
-│  src/utils/ (Helpers, Dates, DOM, MD, etc.) │
+│  src/utils/ (date, dom, helpers, format,    │
+│              secure, markdown, extract, cdn)│
 ├─────────────────────────────────────────────┤
-│  src/config/ (Constants, Schema)            │
+│  src/config/ (constants CFG, settings       │
+│               schema/migrations, standards/)│
 ├─────────────────────────────────────────────┤
-│  localStorage (All Persistence)             │
-│  sessionStorage (API Keys Only)             │
+│  localStorage (sync bootstrap)              │
+│  sessionStorage (API keys only)             │
+│  IndexedDB (async mirror + hydrate)         │
 └─────────────────────────────────────────────┘
 ```
 
@@ -42,42 +62,87 @@ Journey A.I is a single-page web application built with vanilla JavaScript (ES20
 
 ### `src/core/router.js`
 
-Hash-based SPA router. Maps view IDs to render functions. Handles `#/<view>` URL changes and renders the active view into `#viewRoot`.
+Hash-based SPA router. Maps view IDs to render functions, renders the active
+view into `#viewRoot`, and coalesces re-renders through `requestAnimationFrame`.
 
 ### `src/core/store.js`
 
-localStorage persistence layer. Manages the `Store.db` object, debounced saves, schema migrations, and data lookups. API keys are stripped before persistence.
+Persistence layer (`journeyai.db.v1`, schemaVersion 4). `load()` reads
+localStorage synchronously; every `persist()` also mirrors to IndexedDB via
+`src/core/idb.js` and stamps a sidecar timestamp. Boot then
+`await Store.hydrateFromIDB()` so a newer mirror wins when localStorage is
+missing, corrupt, or older. Manages `Store.db`, debounced saves, forward schema
+migrations, dedupe-on-load and data lookups. API keys are stripped before every
+persist.
 
-### `src/core/actions.js`
+### `src/core/actions/` + `src/app/actions-delegation.js`
 
-Action dispatch layer. Maps `data-act` HTML attributes to handler functions via a dispatch table. All user interactions flow through this module.
+Action dispatch. `data-act` attributes route through a dispatch table built in
+`src/core/actions/index.js`; the delegation layer reports synchronous throws and
+rejected handler promises as toasts instead of swallowing them. The guard set
+`KNOWN_ACTIONS` is derived from the dispatch table and asserted against the
+markup in tests, so handler names and emitted actions cannot drift apart.
 
 ### `src/domain/rag.js`
 
-BM25 document retrieval index. Chunks uploaded documents, builds an inverted index, and provides extractive search for the AI tutor context.
+BM25 retrieval. Documents are chunked at paragraph boundaries (with
+`CFG.chunkOverlap` shared between consecutive chunks), tokenised (stemmed,
+stop-worded, numbers kept only after a word), and indexed. `RAG.search` applies
+a relative relevance floor so an unmatched query returns *nothing* rather than
+arbitrary passages dressed up as sources — except for explicitly scoped queries
+(the student chose the document), which read the chosen material with
+`score: 0`. Index entries resolve chunk text lazily from the document store
+instead of keeping a second copy in memory.
 
-### `src/ai/index.js`
+### `src/ai/`
 
-Provider-agnostic AI client. Supports OpenAI, OpenRouter, Groq, Gemini, Ollama, and custom endpoints. Falls back to BM25 retrieval when no API key is configured.
+- `client.js` — Gemini/OpenRouter `fetch()` with retries, timeout, abort
+  support, token-budget truncation that never splits a tool call from its
+  result, and usage recording.
+- `agent.js` — bounded `StudyPlanAgent` tool loop: memoised tool calls, a
+  wall-clock ceiling, aggregated usage, abort-as-cancel, and tool results
+  fenced as untrusted data.
+- `prompts.js` — tutor/Socratic prompts with untrusted-content fencing and
+  citation rules.
+- `offline.js` — extractive offline answers and recall-question generation.
+- `index.js` — public AI surface, including `studyPlanProposal`, which attaches
+  a schedulable draft from the deterministic planner to the agent's narrative;
+  the student accepts, edits or rejects it before anything is written.
+
+Syllabus parsing is **always on-device** (`NLP.analyse`); no AI parser exists in
+the pipeline.
 
 ## Data Model
 
-All data lives in `localStorage` under the key `journeyai.db.v1`:
+All data lives under the key `journeyai.db.v1` in `localStorage`, mirrored to
+the IndexedDB database `journeyai` (store `kv`):
 
-- `courses[]` — Academic courses
-- `lessons[]` — Weekly lesson topics
-- `events[]` — Assignments, exams, quizzes, projects (with subtasks)
-- `readings[]` — Required/optional readings
-- `documents[]` — Uploaded reference materials (full text stored)
-- `chunks[]` — BM25-indexed text chunks (derived from documents)
+- `courses[]` — academic courses
+- `lessons[]` — weekly lesson topics
+- `events[]` — assignments, exams, quizzes, projects (with subtasks)
+- `readings[]` — required/optional readings
+- `documents[]` — uploaded reference materials (full text stored)
+- `chunks[]` — BM25 chunk coordinates (`{docId, start, len}`, no text copies)
 - `chat[]` — AI tutor conversation history
-- `activity[]` — Daily study activity log
-- `plan[]` — Generated study plan items
-- `settings` — Provider config, term dates, study hours
+- `activity[]` — daily study activity log
+- `plan[]` — committed study plan items
+- `planMeta` — plan provenance (mode, model, tools, calls, exclusions)
+- `settings` — provider config, term dates, study hours, guidance modes
 
 ## Design Decisions
 
-1. **Zero runtime dependencies** — All business logic is vanilla JS. CDN UMD libraries handle PDF, DOCX, and charts.
-2. **Offline-first fallback** — The NLP engine is rule-based, the assistant falls back to BM25 extractive retrieval, and the planner uses greedy scheduling.
-3. **Security** — API keys stored in `sessionStorage` (cleared on tab close), stripped before localStorage persistence, never logged.
-4. **Action dispatch** — User interactions use `data-act` attributes on HTML elements, dispatched through a central table in `actions.js`.
+1. **Zero runtime dependencies** — business logic is vanilla JS; CDN UMD
+   libraries handle PDF, DOCX and charts.
+2. **Offline-first fallback** — deterministic NLP, BM25 retrieval, extractive
+   offline answers and greedy scheduling work with no key and no network.
+3. **Security** — API keys live in `sessionStorage` (per-provider, TTL),
+   stripped before every `localStorage` / IndexedDB write, never logged. Retrieved document
+   text and tool results are fenced as untrusted data in every model prompt.
+4. **Action dispatch** — user interactions use `data-act` attributes routed
+   through a derived dispatch table; handler failures surface as toasts.
+5. **The AI proposes; the student decides** — study plans land as a preview or
+   a proposal card and are only written on an explicit accept/edit; import
+   cannot overwrite an existing plan silently.
+6. **Sync load, async mirror** — `Store.load()` is always synchronous
+   (localStorage only in tests/happy-dom); IndexedDB is an optional boot-time
+   hydrate and overflow path, never a required API.

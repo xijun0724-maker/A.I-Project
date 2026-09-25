@@ -39,11 +39,19 @@ export function courseModal(courseId) {
     '<label class="fld"><span>Course title</span><input id="cmTitle" placeholder="Data Structures & Algorithms" value="' +
     esc(c ? c.title : "") +
     '"></label>' +
-    '<div class="grid g2">' +
+    '<div class="grid g3">' +
+    '<label class="fld"><span>Year level</span><select id="cmYear">' +
+    ["First Year", "Second Year", "Third Year", "Fourth Year", "Graduate"]
+      .map(function (y) {
+        const isSel = c && (c.yearLevel === y || (!c.yearLevel && c.term === y));
+        return '<option value="' + y + '"' + (isSel ? " selected" : "") + ">" + y + "</option>";
+      })
+      .join("") +
+    "</select></label>" +
     '<label class="fld"><span>Instructor</span><input id="cmInstructor" placeholder="Dr. R. Mehta" value="' +
     esc(c ? c.instructor || "" : "") +
     '"></label>' +
-    '<label class="fld"><span>Term</span><input id="cmTerm" placeholder="Fall Term" value="' +
+    '<label class="fld"><span>Term / Semester</span><input id="cmTerm" placeholder="1st Semester" value="' +
     esc(c ? c.term || "" : "") +
     '"></label>' +
     "</div>" +
@@ -70,6 +78,11 @@ export function courseModal(courseId) {
     title: c ? "Edit course" : "Add a course",
     body: body,
     footer:
+      (c
+        ? '<button type="button" class="btn danger" id="cmDelete" data-act="del-course" data-id="' +
+          esc(c.id) +
+          '" data-close="1" style="margin-right:auto;">Delete course</button>'
+        : "") +
       '<button class="btn" data-close="1">Cancel</button><button class="btn primary" id="cmSave">' +
       (c ? "Save changes" : "Create course") +
       "</button>",
@@ -85,6 +98,7 @@ export function courseModal(courseId) {
           code: code,
           title: title,
           color: q("#cmColor", m).value,
+          yearLevel: q("#cmYear", m).value,
           instructor: q("#cmInstructor", m).value.trim(),
           term: q("#cmTerm", m).value.trim() || "Term",
           days: q("#cmDays", m).value.trim(),

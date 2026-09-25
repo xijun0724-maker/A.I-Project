@@ -7,11 +7,20 @@ import { CFG } from "../config/constants.js";
 import { UI } from "../core/state.js";
 import { Tasks } from "./tasks.js";
 import { Coach } from "./coach.js";
+import { Standards } from "../config/standards/index.js";
 import { sum, pct, sortBy } from "../utils/helpers.js";
 import { DAY, fromIso, daysUntil } from "../utils/date.js";
 import { clamp } from "../utils/helpers.js";
 
 export const Dashboard = {};
+
+/** Active standard's competency map (PNU CMI, generic HE, or custom). */
+function activeCompetencies() {
+  const settings = Store.db && Store.db.settings ? Store.db.settings : null;
+  const list = Standards.competencies(settings);
+  if (list.length) return list;
+  return Standards.competencies(Standards.DEFAULT_ID);
+}
 
 Dashboard.kpis = function () {
   const evs = Store.db.events.filter(UI.inScope);
@@ -47,8 +56,12 @@ Dashboard.kpis = function () {
   };
 };
 
-Dashboard.completionByCourse = function () {
-  return UI.courses().map(function (c) {
+Dashboard.completionByCourse = function (opts) {
+  /* opts.all — ignore the focused-course scope. The Courses index must list
+     every course; otherwise a previously opened course locks the page to a
+     single card and newly imported syllabuses never appear. */
+  const list = opts && opts.all ? Store.db.courses.slice() : UI.courses();
+  return list.map(function (c) {
     const evs = Store.db.events.filter(function (e) {
       return e.courseId === c.id;
     });
@@ -113,6 +126,74 @@ Dashboard.letter = function (p) {
     if (p >= g.min) return g.letter;
   }
   return "F";
+};
+
+/**
+ * Map an event/task to the active standard's competencies based on type
+ * and title keywords. Matching rules live on each standard definition.
+ */
+function mapEventToCompetencies(event, competencies) {
+  const title = (event.title || "").toLowerCase();
+  const type = event.type || "other";
+  const matched = new Set();
+
+  (competencies || []).forEach(function (comp) {
+    const types = comp.types || [];
+    const keywords = comp.keywords || [];
+    if (types.indexOf(type) >= 0) matched.add(comp.id);
+    for (let i = 0; i < keywords.length; i++) {
+      if (title.includes(keywords[i])) {
+        matched.add(comp.id);
+        break;
+      }
+    }
+  });
+
+  if (!matched.size) {
+    const fallback = (competencies || [])[0];
+    if (fallback) matched.add(fallback.id);
+  }
+
+  return Array.from(matched);
+}
+
+/**
+ * Compute competency mastery for a course based on completed tasks
+ */
+Dashboard.competencyMastery = function (courseId) {
+  const events = Store.db.events.filter((e) => e.courseId === courseId);
+  if (!events.length) return [];
+
+  const competencies = activeCompetencies();
+  if (!competencies.length) return [];
+
+  const competencyMap = {};
+  competencies.forEach((c) => {
+    competencyMap[c.id] = { label: c.label, total: 0, completed: 0, tasks: [] };
+  });
+
+  events.forEach((event) => {
+    const compIds = mapEventToCompetencies(event, competencies);
+    compIds.forEach((compId) => {
+      if (competencyMap[compId]) {
+        competencyMap[compId].total++;
+        competencyMap[compId].tasks.push(event.id);
+        if (event.status === "done") {
+          competencyMap[compId].completed++;
+        }
+      }
+    });
+  });
+
+  return Object.values(competencyMap)
+    .filter((c) => c.total > 0)
+    .map((c) => ({
+      label: c.label,
+      mastery: c.total > 0 ? Math.round((c.completed / c.total) * 100) : 0,
+      completed: c.completed,
+      total: c.total,
+    }))
+    .sort((a, b) => b.mastery - a.mastery);
 };
 
 Dashboard.upcoming = function (limit) {

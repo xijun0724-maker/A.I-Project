@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { Store } from '../../src/core/store.js';
 import { Dashboard } from '../../src/domain/dashboard.js';
+import { dashboardView } from '../../src/views/dashboard.js';
 
 beforeEach(() => {
   Store.resetAll();
@@ -140,3 +141,88 @@ describe('Dashboard.readiness', () => {
     expect(r.timePct).toBeLessThanOrEqual(100);
   });
 });
+
+describe('Dashboard - Synchronized "To do:" card', () => {
+  it('renders heading "To do:" with + Add to-do button', () => {
+    const html = dashboardView.fn();
+    expect(html).toContain('<h2>To do:</h2>');
+    expect(html).toContain('+ Add to-do');
+    expect(html).toContain('data-act="task-new"');
+  });
+
+  it('renders clean empty state without redundant duplicate button when there are no open tasks', () => {
+    Store.db.events = [
+      { id: 'e1', title: 'Finished Lab', status: 'done', priority: 'Medium', subtasks: [] },
+    ];
+    const html = dashboardView.fn();
+    expect(html).toContain('All caught up! No pending to-do items.');
+    expect(html).not.toContain('+ Add your first to-do');
+  });
+
+  it('synchronizes with open tasks, rendering square checklist items, priority and deadline', () => {
+    Store.db.courses = [
+      { id: 'c1', title: 'Calculus I', code: 'MATH101', color: '#3b82f6' }
+    ];
+    Store.db.events = [
+      {
+        id: 't1',
+        title: 'Review Lecture 4 notes',
+        status: 'todo',
+        priority: 'Critical',
+        due: new Date(Date.now() + 86400000).toISOString(),
+        courseId: 'c1',
+      },
+      {
+        id: 't2',
+        title: 'Complete Worksheet 2',
+        status: 'todo',
+        priority: 'Low',
+        due: null,
+      },
+      {
+        id: 't3',
+        title: 'Old homework',
+        status: 'done',
+        priority: 'High',
+      },
+    ];
+
+    const html = dashboardView.fn();
+    expect(html).toContain('2 open');
+    expect(html).toContain('Review Lecture 4 notes');
+    expect(html).toContain('Complete Worksheet 2');
+    expect(html).not.toContain('Old homework');
+
+    // Square checkboxes matching Tasks view
+    expect(html).toContain('class="chk-square" data-act="task-toggle" data-id="t1"');
+    expect(html).toContain('class="chk-square" data-act="task-toggle" data-id="t2"');
+
+    // Priority badges and course chip
+    expect(html).toContain('Critical');
+    expect(html).toContain('Low');
+    expect(html).toContain('MATH101');
+
+    // Action buttons & footer
+    expect(html).toContain('data-act="event-edit" data-id="t1"');
+    expect(html).not.toContain('>Edit</button>');
+    expect(html).toContain('status-todo');
+    expect(html).toContain('View all to-dos &rarr;');
+    expect(html).toContain('data-act="nav" data-arg="tasks"');
+  });
+
+  it('immediately updates when a task is marked done', () => {
+    Store.db.events = [
+      { id: 't1', title: 'Task 1', status: 'todo', priority: 'High' },
+    ];
+    let html = dashboardView.fn();
+    expect(html).toContain('1 open');
+    expect(html).toContain('Task 1');
+
+    Store.db.events[0].status = 'done';
+    html = dashboardView.fn();
+    expect(html).toContain('0 open');
+    expect(html).not.toContain('Task 1');
+    expect(html).toContain('All caught up!');
+  });
+});
+

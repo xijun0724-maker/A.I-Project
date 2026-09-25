@@ -1,0 +1,33 @@
+/* ================================================================ JOURNEY A.I — Import (Syllabus) View Styles Linear-style: drag-and-drop zone, review table, confidence pills ================================================================ */ /* ── Drop zone ──────────────────────────────────────────────────── */ .drop{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-sm);
+  padding: 48px var(--sp-lg);
+  border-radius: var(--rounded-lg);
+  border: 2px dashed var(--rule);
+  background: var(--paper-2);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-out-quart),
+    background var(--duration-fast) var(--ease-out-quart);
+}.drop:hover, .drop.active{
+  border-color: var(--pen);
+  background: var(--pen-soft);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

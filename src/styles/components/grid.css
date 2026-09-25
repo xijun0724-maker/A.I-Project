@@ -1,0 +1,33 @@
+/* Grid component */
+.grid {
+  display: grid;
+  gap: 16px;
+}
+.g2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.g3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.g4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.g-2-1 {
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1.15fr);
+}
+@media (max-width: 1150px) {
+  .g4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .g3 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 768px) {
+  .g4,
+  .g3,
+  .g2,
+  .g-2-1 {
+    grid-template-columns: 1fr;
+  }
+}

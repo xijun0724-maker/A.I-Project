@@ -3,15 +3,26 @@
  */
 
 import { Store } from "../store.js";
-import { UI } from "../state.js";
+import { UI, UIState } from "../state.js";
 import { Router } from "../router.js";
 import { CFG } from "../../config/constants.js";
+import { migrateSchema } from "../../config/settings.js";
 import { toast } from "../../utils/dom.js";
-import { uid, minutesToHM } from "../../utils/helpers.js";
+import { uid, minutesToHM, safeCssUrl, safeColor } from "../../utils/helpers.js";
 import { Tasks } from "../../domain/tasks.js";
 import { RAG } from "../../domain/rag.js";
 import { Planner } from "../../domain/planner.js";
 import { addDays, dateOnly, fromIso } from "../../utils/date.js";
+
+/* Late-import the view helper so this core module has no static views dep. */
+let _resetCoursesViewState = null;
+async function resetCoursesViewState() {
+  if (!_resetCoursesViewState) {
+    const mod = await import("../../views/courses.js");
+    _resetCoursesViewState = mod.resetCoursesViewState;
+  }
+  return _resetCoursesViewState();
+}
 
 export function summarizeImportPlan(suggestedPlan, stats, planItems) {
   const totalMinutes = Number(suggestedPlan && suggestedPlan.totalMinutes) || 0;
@@ -26,7 +37,12 @@ export function summarizeImportPlan(suggestedPlan, stats, planItems) {
     .length;
   const summaryParts = [
     minutesToHM(totalMinutes),
-    scheduledBlocks + " scheduled block" + (scheduledBlocks === 1 ? "" : "s"),
+    /* Proposed, not scheduled: nothing is written until the student confirms
+       the preview the import opens. */
+    scheduledBlocks +
+      " block" +
+      (scheduledBlocks === 1 ? "" : "s") +
+      " ready to review",
     deadlineCount + " deadline" + (deadlineCount === 1 ? "" : "s"),
     readingCount + " reading" + (readingCount === 1 ? "" : "s"),
     lessonCount + " topic" + (lessonCount === 1 ? "" : "s"),
@@ -49,6 +65,151 @@ export function summarizeImportPlan(suggestedPlan, stats, planItems) {
   return "Suggested plan: " + plannedText + reviewText + "." + capacityText;
 }
 
+/** Collections a backup may restore, in export order. */
+const BACKUP_ARRAY_KEYS = [
+  "courses",
+  "events",
+  "lessons",
+  "readings",
+  "documents",
+  "chunks",
+  "chat",
+  "activity",
+  "plan",
+];
+
+/** Stable entity ids only — never raw attacker-controlled strings in data-* attrs. */
+const SAFE_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * Check a parsed backup file before anything is written to the database.
+ * `settings` is an object in every export, so it is validated separately
+ * from the array collections.
+ *
+ * @returns {string|null} A human-readable problem, or null when usable.
+ */
+export function validateBackup(data) {
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return "This does not look like a Journey A.I backup file.";
+  }
+  if (!data.version) {
+    return "This backup has no schema version, so it cannot be restored safely.";
+  }
+  for (let i = 0; i < BACKUP_ARRAY_KEYS.length; i++) {
+    const key = BACKUP_ARRAY_KEYS[i];
+    const value = data[key];
+    if (value === undefined || value === null) continue;
+    if (!Array.isArray(value)) return '"' + key + '" must be an array.';
+    if (
+      value.some(function (entry) {
+        return !entry || typeof entry !== "object";
+      })
+    ) {
+      return '"' + key + '" contains an entry that is not an object.';
+    }
+    /* Every collection entity must carry a stable, safe id: it later lands in
+       data-id / id attributes when views re-render the restored rows. */
+    for (let j = 0; j < value.length; j++) {
+      const entry = value[j];
+      if (!entry || typeof entry !== "object") continue;
+      if (entry.id != null && !SAFE_ID_RE.test(String(entry.id))) {
+        return (
+          '"' +
+          key +
+          '" has an invalid id. Ids may only contain letters, numbers, hyphens and underscores (max 64).'
+        );
+      }
+    }
+  }
+  if (
+    data.settings !== undefined &&
+    data.settings !== null &&
+    (typeof data.settings !== "object" || Array.isArray(data.settings))
+  ) {
+    return '"settings" must be an object.';
+  }
+  /* Backup fields later land in style= sinks (course colors, banner URLs).
+     Neutralize them here so a crafted file cannot inject CSS. */
+  if (Array.isArray(data.courses)) {
+    for (let i = 0; i < data.courses.length; i++) {
+      const course = data.courses[i];
+      if (!course || typeof course !== "object") continue;
+      if (
+        course.color != null &&
+        safeColor(course.color) !== String(course.color).trim()
+      ) {
+        course.color = "";
+      }
+      if (
+        course.image != null &&
+        safeCssUrl(course.image) !== String(course.image).trim()
+      ) {
+        course.image = null;
+      }
+    }
+  }
+  if (data.planMeta !== undefined && data.planMeta !== null) {
+    if (typeof data.planMeta !== "object" || Array.isArray(data.planMeta)) {
+      return '"planMeta" must be an object.';
+    }
+  }
+  let bytes = 0;
+  try {
+    bytes = JSON.stringify(data).length * 2;
+  } catch (_e) {
+    return "This backup could not be read.";
+  }
+  if (bytes > CFG.storage.maxBytes * 0.9) {
+    return (
+      "This backup is too large for browser storage (" +
+      Math.round(bytes / 1024) +
+      " kB). Remove some files from Library first."
+    );
+  }
+  return null;
+}
+
+/**
+ * Validate, migrate and apply a backup to the live database.
+ * Throws with a user-presentable message when the file cannot be restored.
+ *
+ * @param {object} data - Parsed backup object
+ * @returns {object} The applied backup
+ */
+export function applyBackup(data) {
+  const problem = validateBackup(data);
+  if (problem) throw new Error(problem);
+
+  const migrated = migrateSchema(data);
+  if (!migrated) {
+    throw new Error(
+      "This backup was made by a newer version of Journey A.I. Update the app before restoring it.",
+    );
+  }
+
+  /* A key already trusted in this browser wins: backups never carry one. */
+  const currentKey = Store.db.settings.apiKey || "";
+
+  BACKUP_ARRAY_KEYS.forEach(function (key) {
+    if (Array.isArray(migrated[key])) Store.db[key] = migrated[key];
+  });
+  if (migrated.planMeta !== undefined)
+    Store.db.planMeta = migrated.planMeta || null;
+  if (migrated.settings && typeof migrated.settings === "object") {
+    const { apiKey: _ignored, ...incoming } = migrated.settings;
+    Store.db.settings = {
+      ...Store.db.settings,
+      ...incoming,
+      apiKey: currentKey,
+    };
+  }
+
+  Store.deduplicateData(Store.db);
+  RAG.reindexAll();
+  Store.saveNow();
+  return migrated;
+}
+
 export function importData() {
   const input = document.createElement("input");
   input.type = "file";
@@ -57,27 +218,19 @@ export function importData() {
     const file = input.files[0];
     if (!file) return;
     const reader = new FileReader();
+    reader.onerror = () =>
+      toast("The browser could not read that file.", "bad", "Import error");
     reader.onload = () => {
       try {
-        const data = JSON.parse(reader.result);
-        if (!data || !data.version)
-          throw new Error("Invalid Journey A.I backup file.");
-        const allowed = [
-          "courses",
-          "events",
-          "lessons",
-          "documents",
-          "readings",
-          "settings",
-        ];
-        const valid = allowed.every(function (k) {
-          return !data[k] || Array.isArray(data[k]);
-        });
-        if (!valid) throw new Error("Backup contains invalid data types.");
-        allowed.forEach(function (k) {
-          if (data[k]) Store.db[k] = data[k];
-        });
-        Store.saveNow();
+        let data;
+        try {
+          data = JSON.parse(reader.result);
+        } catch (_e) {
+          throw new Error(
+            "That file is not valid JSON, so nothing was imported.",
+          );
+        }
+        applyBackup(data);
         Router.scheduleRender();
         toast("Data imported successfully.", "ok");
       } catch (e) {
@@ -93,6 +246,16 @@ export function commitDraft() {
   const draft = UI.draft;
   if (!draft) return;
   let courseId = draft.courseId;
+  /* A course deleted while the review screen was open must not receive
+     lessons/events under a dead id — they would be invisible everywhere. */
+  if (
+    courseId &&
+    !Store.db.courses.some(function (course) {
+      return course.id === courseId;
+    })
+  ) {
+    courseId = null;
+  }
   const nc = draft.newCourse;
   const detectedCourse =
     (draft.payloads || [])
@@ -104,16 +267,21 @@ export function commitDraft() {
       .find(function (course) {
         return course && (course.code || course.title);
       }) || {};
-  if (
-    !courseId &&
-    ((nc && (nc.code || nc.title)) ||
-      detectedCourse.code ||
-      detectedCourse.title)
-  ) {
+  if (!courseId) {
+    /* Always create a course for the import: detected info wins, then the
+       typed fields, then the file name. Never orphan the payload data. */
+    const firstPayload = (draft.payloads || [])[0];
+    const fileBase = String((firstPayload && firstPayload.name) || "")
+      .replace(/\.[^.]+$/, "")
+      .trim();
     const newC = {
       id: uid("crs"),
-      code: nc.code || detectedCourse.code || "",
-      title: nc.title || detectedCourse.title || "Imported course",
+      code: (nc && nc.code) || detectedCourse.code || "",
+      title:
+        (nc && nc.title) ||
+        detectedCourse.title ||
+        fileBase ||
+        "Imported course",
       color: CFG.palette[Store.db.courses.length % CFG.palette.length],
       instructor: "",
       term: "Term",
@@ -126,19 +294,14 @@ export function commitDraft() {
     };
     Store.db.courses.push(newC);
     courseId = newC.id;
-  }
-  if (courseId && detectedCourse) {
+  } else {
     const existingCourse = Store.db.courses.find(function (course) {
       return course.id === courseId;
     });
     if (existingCourse) {
-      if (!existingCourse.code && detectedCourse.code)
-        existingCourse.code = detectedCourse.code;
-      if (
-        (!existingCourse.title || existingCourse.title === "Imported course") &&
-        detectedCourse.title
-      )
-        existingCourse.title = detectedCourse.title;
+      /* A re-upload is usually a corrected syllabus: detected values win. */
+      if (detectedCourse.code) existingCourse.code = detectedCourse.code;
+      if (detectedCourse.title) existingCourse.title = detectedCourse.title;
     }
   }
   (draft.payloads || []).forEach((p) => {
@@ -240,7 +403,12 @@ export function commitDraft() {
     Store.db.documents.push(doc);
   });
   Store.deduplicateData(Store.db);
-  const suggestedPlan = Planner.generate({ courseId: courseId || "all" });
+  /* Importing must not silently replace a plan the student already has.
+     Draft the schedule and hand it to the same preview the manual generate
+     action uses: nothing is written until they press Confirm & Save. */
+  const suggestedPlan = Planner.generateInteractive({
+    courseId: courseId || "all",
+  });
   const importStats = {
     events: (draft.payloads || []).reduce(function (total, p) {
       return (
@@ -267,22 +435,29 @@ export function commitDraft() {
       );
     }, 0),
   };
+  const reviewable = suggestedPlan.planItems.length > 0;
   const planSummary = summarizeImportPlan(
-    suggestedPlan,
+    suggestedPlan.meta,
     importStats,
-    (Store.db.plan || []).filter(function (item) {
-      return item && item.label;
-    }),
+    suggestedPlan.planItems,
   );
+  UIState.set("plannerPreview", reviewable ? suggestedPlan : null);
   UI.draft = null;
+  /* Reindex mutates chunks/chunkCount — it must run before the save, or a
+     reload restores the previous index and the new syllabus stays unindexed. */
+  RAG.reindexAll();
   Store.saveNow();
-  RAG.reindexAll(); // Ensure reindexing after saving
-  Router.navigate("dashboard");
+  /* Land back on My courses with a clean filter so the new/updated card
+     cannot be hidden by a leftover search or filter. */
+  resetCoursesViewState();
+  Router.navigate("courses");
   toast(
-    suggestedPlan.totalMinutes
-      ? "Import committed. " + planSummary
+    reviewable
+      ? "Import committed. " +
+          planSummary +
+          " Nothing is scheduled yet — review the plan in Planner."
       : "Import committed. No open work was available to schedule.",
-    suggestedPlan.totalMinutes ? "ok" : "info",
+    reviewable ? "ok" : "info",
   );
 }
 

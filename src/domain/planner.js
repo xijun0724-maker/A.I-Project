@@ -18,8 +18,20 @@ import {
 
 export const Planner = {};
 
-Planner.units = function (courseId) {
+/**
+ * Work units to schedule, highest priority first.
+ *
+ * @param {string} [courseId] - Course filter; "all" (or empty) for every course
+ * @param {Array<string>} [exclude] - Event ids the student removed from the
+ *   proposal; an event left out here is left out entirely (its subtasks too),
+ *   so the recomputed plan cannot quietly put it back.
+ */
+Planner.units = function (courseId, exclude) {
   const out = [];
+  const skip = {};
+  (exclude || []).forEach(function (id) {
+    if (id) skip[id] = true;
+  });
   const seenEvents = {};
   const seenUnits = {};
   const pushUnit = function (unit) {
@@ -33,6 +45,7 @@ Planner.units = function (courseId) {
     out.push(unit);
   };
   const events = Store.db.events.filter(Tasks.isOpen).filter(function (event) {
+    if (skip[event.id]) return false;
     if (courseId && courseId !== "all" && event.courseId !== courseId)
       return false;
     const key = [
@@ -96,10 +109,23 @@ Planner.units = function (courseId) {
   });
 };
 
-Planner.generate = function (opts) {
+/**
+ * Build a study schedule. The single source of truth for scheduling:
+ * Planner.generateInteractive and Planner.generate are thin wrappers over
+ * this, so the preview path and the auto-generate path cannot drift apart.
+ * Does not touch the database.
+ *
+ * @param {object} [opts]
+ * @param {number} [opts.weeks] - Horizon in weeks (default settings.plannerWeeks)
+ * @param {string} [opts.courseId] - Course filter; "all" for every course
+ * @param {Array<string>} [opts.exclude] - Event ids to leave out of the plan
+ * @returns {{days: Array, planItems: Array, unscheduled: Array, atRisk: Array, meta: object}}
+ */
+function schedule(opts) {
   opts = opts || {};
   const weeks = opts.weeks || Store.db.settings.plannerWeeks || 6;
   const courseId = opts.courseId || Store.db.settings.courseId || "all";
+  const exclude = opts.exclude || [];
   const { minBlock, maxBlock, blockGap, weekendStart, weekdayStart } =
     CFG.planner;
   const start = startOfDay(new Date());
@@ -113,7 +139,7 @@ Planner.generate = function (opts) {
       items: [],
     });
   }
-  const queue = Planner.units(courseId);
+  const queue = Planner.units(courseId, exclude);
   const unscheduled = [],
     overflow = [];
 
@@ -185,10 +211,10 @@ Planner.generate = function (opts) {
     return String(n).padStart(2, "0");
   }
 
-  Store.db.plan = [];
+  const planItems = [];
   days.forEach(function (day) {
     day.items.forEach(function (it) {
-      Store.db.plan.push(it);
+      planItems.push(it);
     });
   });
   const uniqueTitles = function (items) {
@@ -206,20 +232,70 @@ Planner.generate = function (opts) {
         return true;
       });
   };
-  Store.db.planMeta = {
+  const excluded = sortBy(
+    exclude
+      .map(function (id) {
+        return Store.event(id);
+      })
+      .filter(Boolean),
+    function (e) {
+      return e.title || "";
+    },
+  ).map(function (e) {
+    return e.title;
+  });
+  const meta = {
     generatedAt: new Date().toISOString(),
     weeks: weeks,
+    courseId: courseId,
+    excluded: excluded,
     capacityMinutes: sum(days, function (day) {
       return day.capacity;
     }),
     unscheduled: uniqueTitles(unscheduled),
     atRisk: uniqueTitles(overflow),
-    totalMinutes: sum(Store.db.plan, function (p) {
+    totalMinutes: sum(planItems, function (p) {
       return p.minutes;
     }),
   };
+  return {
+    days,
+    planItems,
+    unscheduled: meta.unscheduled,
+    atRisk: meta.atRisk,
+    meta,
+  };
+}
+
+/**
+ * Preview a schedule without persisting it.
+ * Returns { days, planItems, unscheduled, atRisk, meta } for the review UI.
+ * Accept the preview with Planner.commit(result).
+ */
+Planner.generateInteractive = schedule;
+
+/**
+ * Persist a schedule onto the database. Shared by the auto-generate action
+ * and the accepted-preview action so both write the same shape.
+ *
+ * @param {{planItems: Array, meta: object}} result - A schedule() result
+ * @returns {object} The stored planMeta
+ */
+Planner.commit = function (result) {
+  Store.db.plan = (result && result.planItems) || [];
+  Store.db.planMeta = (result && result.meta) || null;
   Store.saveNow();
   return Store.db.planMeta;
+};
+
+/**
+ * Schedule and persist in one step.
+ *
+ * @param {object} [opts] - Same options as Planner.generateInteractive
+ * @returns {object} The stored planMeta
+ */
+Planner.generate = function (opts) {
+  return Planner.commit(schedule(opts));
 };
 
 Planner.clear = function () {

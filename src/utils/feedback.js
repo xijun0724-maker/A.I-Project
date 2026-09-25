@@ -164,12 +164,3 @@ export function helpModal(content) {
     footer: '<button class="btn primary" data-close="1">Got it</button>',
   });
 }
-
-// Export as namespace for backward compatibility
-export const Feedback = {
-  modal,
-  confirm,
-  helpModal,
-};
-
-export default Feedback;

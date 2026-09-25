@@ -12,89 +12,138 @@
 import { Store } from "../store.js";
 import { UIState } from "../state.js";
 import { Router } from "../router.js";
-import { toast } from "../../utils/dom.js";
+import { toast, q } from "../../utils/dom.js";
+import { renderRecents } from "../../utils/format.js";
 import { RAG } from "../../domain/rag.js";
+import { NLP } from "../../domain/nlp.js";
 import {
   deleteCourse,
   deleteDocument,
   toggleLesson,
+  toggleStarCourse,
+  toggleRemoveFromView,
   clearChat,
+  loadMoodleSample,
 } from "./courses.js";
-import { toggleTask, toggleSubtask, toggleReading } from "./tasks.js";
-import {
-  exportData,
-  exportICS,
-  exportProgress,
-  exportRoadmap,
-  exportCSV,
-} from "./exports.js";
+import { toggleTask, toggleSubtask, toggleReading, deleteTask } from "./tasks.js";
+import { exportData, exportRoadmap } from "./exports.js";
 import { saveSettings, testAI, clearApiKeyFn } from "./settings.js";
 import { importData, commitDraft, cancelDraft } from "./import.js";
 import {
   generatePlan,
+  applyPlanSettings,
   clearPlan,
   togglePlanItem,
   resetData,
   loadDemo,
   reindexFn,
+  cancelPlanPreview,
+  commitPlanPreview,
+  acceptPlanProposal,
+  editPlanProposal,
+  rejectPlanProposal,
+  toggleProposalExclusion,
+  togglePlanCompletedFilter,
+  togglePlanReviewsFilter,
+  showPlanActiveFilter,
 } from "./planner.js";
 
-/** Known action names - updated as actions are added. */
-const KNOWN_ACTIONS = new Set([
+/**
+ * Actions handled by their own control flow in act(), before the dispatch
+ * table is consulted. Kept next to the branches that implement them.
+ */
+const DIRECT_ACTIONS = [
   "nav",
   "view",
   "go-import",
   "ask",
   "tab",
-  "settings-save",
-  "data-export",
-  "data-import",
-  "data-reset",
-  "demo-load",
-  "reindex",
-  "ai-test",
-  "ai-key-clear",
-  "new-course",
-  "edit-course",
-  "del-course",
   "course-view",
-  "event-edit",
-  "lesson-edit",
-  "lesson-new",
-  "lesson-toggle",
-  "view-doc",
-  "del-doc",
-  "chat-send",
-  "chat-plan",
-  "chat-clear",
-  "chat-source",
-  "chat-sources-clear",
-  "chat-sources-toggle",
-  "plan-generate",
-  "plan-clear",
-  "plan-toggle",
-  "draft-commit",
-  "draft-cancel",
-  "export-ics",
-  "export-progress",
-  "export-roadmap",
-  "export-csv",
-  "sub-toggle",
-  "task-toggle",
+  "course-open-roadmap",
+  "scope-course",
+  "scope-clear",
+  "scope-clear-to-courses",
   "task-ask",
-  "task-new",
-  "reading-new",
-  "reading-edit",
-  "reading-toggle",
-  "doc-reanalyse",
-  "doc-ask",
-]);
+  "cal-prev",
+  "cal-next",
+  "cal-day-view",
+  "cal-day-new",
+];
 
+/**
+ * Context-free handlers: a frozen map shared by every dispatch.
+ *
+ * Split out of `buildDispatch` so a click does not re-allocate ~40 stable
+ * function references, and so the shape of the action surface is inspectable
+ * without inventing a fake `el`/`arg`/`id`. Context handlers (modals, toggles
+ * that close over the element) live in `buildDispatch` below.
+ */
+const STATIC_HANDLERS = Object.freeze({
+  "settings-save": saveSettings,
+  "data-export": exportData,
+  "data-import": importData,
+  "data-reset": resetData,
+  "demo-load": loadDemo,
+  "load-moodle-sample": loadMoodleSample,
+  reindex: reindexFn,
+  "ai-test": testAI,
+  "ai-key-clear": clearApiKeyFn,
+  "new-course": () => _modal("courseModal"),
+  "lesson-new": () => _modal("lessonModal"),
+  "task-new": () => _modal("eventModal"),
+  "reading-new": () => _modal("readingModal"),
+  "chat-send": async () => {
+    const { sendChat } = await import("../../views/assistant.js");
+    sendChat();
+  },
+  "chat-plan": async () => {
+    const { requestStudyPlan } = await import("../../views/assistant.js");
+    requestStudyPlan();
+  },
+  "chat-stop": async () => {
+    const { abortPending } = await import("../../views/assistant.js");
+    if (!abortPending()) toast("Nothing is running.", "info");
+  },
+  "chat-clear": clearChat,
+  "chat-sources-clear": () => {
+    UIState.set("chatSources", []);
+    Router.scheduleRender();
+  },
+  "chat-sources-toggle": () => {
+    UIState.set("chatSourcesOpen", !UIState.chatSourcesOpen);
+    Router.scheduleRender();
+  },
+  "chat-new": () => {
+    Router.navigate("assistant");
+  },
+  "plan-generate": generatePlan,
+  "plan-settings-apply": applyPlanSettings,
+  "plan-clear": clearPlan,
+  "plan-toggle-completed": togglePlanCompletedFilter,
+  "plan-toggle-reviews": togglePlanReviewsFilter,
+  "plan-show-active": showPlanActiveFilter,
+  "plan-preview-cancel": cancelPlanPreview,
+  "plan-preview-commit": commitPlanPreview,
+  "plan-proposal-accept": acceptPlanProposal,
+  "plan-proposal-edit": editPlanProposal,
+  "plan-proposal-reject": rejectPlanProposal,
+  "draft-commit": commitDraft,
+  "draft-cancel": cancelDraft,
+  "export-roadmap": exportRoadmap,
+});
+
+/**
+ * Warn when a data-act value has no handler, so a typo or stale attribute is
+ * loud instead of a dead button. The set is derived, so this only fires for
+ * names the dispatcher genuinely cannot serve.
+ *
+ * @param {string} action - The data-act value
+ */
 function _assertKnown(action) {
   if (
     !KNOWN_ACTIONS.has(action) &&
-    typeof window !== "undefined" &&
-    window.console
+    typeof console !== "undefined" &&
+    console.warn
   ) {
     console.warn(
       'Journey A.I: unknown action "' +
@@ -110,8 +159,16 @@ function act(action, el) {
   const id = el?.dataset?.id || null;
 
   // Navigation actions
-  if (action === "nav" || action === "view")
+  if (action === "nav" || action === "view") {
+    if (arg === "courses") {
+      UIState.set("tab.courses", "courses");
+      UIState.set("tab.roadmap", "courses");
+    } else if (arg === "roadmap") {
+      UIState.set("tab.courses", "roadmap");
+      UIState.set("tab.roadmap", "roadmap");
+    }
     return Router.navigate(arg || "dashboard");
+  }
   if (action === "go-import") return Router.navigate("import");
   if (action === "ask") {
     Router.navigate("assistant");
@@ -124,16 +181,44 @@ function act(action, el) {
   if (action === "tab") {
     const v = el?.dataset?.view;
     if (v && arg) {
-      UIState.tab[v] = arg;
+      UIState.set(`tab.${v}`, arg);
+      if (v === "courses" || v === "roadmap") {
+        UIState.set("tab.courses", arg);
+        UIState.set("tab.roadmap", arg);
+      }
       Router.scheduleRender();
     }
     return;
   }
-  if (action === "course-view") {
-    UIState.courseId = id;
-    Router.navigate(arg || "dashboard");
+  if (action === "course-open-roadmap" || action === "course-view") {
+    if (id) UIState.set("courseId", id);
+    UIState.set("tab.courses", "roadmap");
+    UIState.set("tab.roadmap", "roadmap");
+    if (UIState.view !== "courses" && UIState.view !== "roadmap") {
+      Router.navigate("courses");
+    } else {
+      Router.scheduleRender();
+    }
     return;
   }
+  if (action === "scope-course") {
+    UIState.set("courseId", id || "all");
+    Router.scheduleRender();
+    return;
+  }
+  if (action === "scope-clear") {
+    UIState.set("courseId", "all");
+    Router.scheduleRender();
+    return;
+  }
+  if (action === "scope-clear-to-courses") {
+    UIState.set("courseId", "all");
+    UIState.set("tab.courses", "courses");
+    UIState.set("tab.roadmap", "courses");
+    Router.scheduleRender();
+    return;
+  }
+
   if (action === "task-ask") {
     Router.navigate("assistant");
     const ev = Store.db.events.find((e) => e.id === id);
@@ -148,83 +233,218 @@ function act(action, el) {
       });
     return;
   }
+  if (action === "cal-prev") {
+    import("../../views/calendar.js").then((m) => m.stepCalendarMonth(-1));
+    return;
+  }
+  if (action === "cal-next") {
+    import("../../views/calendar.js").then((m) => m.stepCalendarMonth(1));
+    return;
+  }
+  if (action === "cal-day-view") {
+    const dStr = el?.dataset?.date;
+    if (dStr) {
+      import("../../views/calendar.js").then((m) => m.showDayEventsModal(dStr));
+    }
+    return;
+  }
+  if (action === "cal-day-new") {
+    const dStr = el?.dataset?.date;
+    return _modal("eventModal", null, dStr ? { due: dStr } : {});
+  }
 
-  // Dispatch table for simple actions
-  const dispatch = {
-    "settings-save": saveSettings,
-    "data-export": exportData,
-    "data-import": importData,
-    "data-reset": resetData,
-    "demo-load": loadDemo,
-    reindex: reindexFn,
-    "ai-test": testAI,
-    "ai-key-clear": clearApiKeyFn,
-    "new-course": () => _modal("courseModal"),
-    "edit-course": () => _modal("courseModal", id),
-    "del-course": () => deleteCourse(id),
-    "event-edit": () => _modal("eventModal", id),
-    "lesson-edit": () => _modal("lessonModal", id),
-    "lesson-new": () => _modal("lessonModal"),
-    "lesson-toggle": () => toggleLesson(id),
-    "view-doc": () => _modal("docModal", id),
-    "del-doc": () => deleteDocument(id),
-    "chat-send": async () => {
-      const { sendChat } = await import("../../views/assistant.js");
-      sendChat();
-    },
-    "chat-plan": async () => {
-      const { requestStudyPlan } = await import("../../views/assistant.js");
-      requestStudyPlan();
-    },
-    "chat-clear": clearChat,
-    "chat-source": () => {
-      const sourceId = id;
-      if (!sourceId) return;
-      const selected = UIState.chatSources || [];
-      UIState.chatSources =
-        selected.indexOf(sourceId) === -1
-          ? selected.concat(sourceId)
-          : selected.filter((value) => value !== sourceId);
-      Router.scheduleRender();
-    },
-    "chat-sources-clear": () => {
-      UIState.chatSources = [];
-      Router.scheduleRender();
-    },
-    "chat-sources-toggle": () => {
-      UIState.chatSourcesOpen = !UIState.chatSourcesOpen;
-      Router.scheduleRender();
-    },
-    "plan-generate": generatePlan,
-    "plan-clear": clearPlan,
-    "plan-toggle": () => togglePlanItem(id),
-    "draft-commit": commitDraft,
-    "draft-cancel": cancelDraft,
-    "export-ics": exportICS,
-    "export-progress": exportProgress,
-    "export-roadmap": exportRoadmap,
-    "export-csv": exportCSV,
-    "sub-toggle": () => toggleSubtask(id, arg),
-    "task-toggle": () => toggleTask(id),
-    "task-new": () => _modal("eventModal"),
-    "reading-new": () => _modal("readingModal"),
-    "reading-edit": () => _modal("readingModal", id),
-    "reading-toggle": () => toggleReading(id),
-    "doc-reanalyse": () => {
-      RAG.reindexAll();
-      toast("Re-analysing document\u2026", "ok");
-    },
-    "doc-ask": () => {
-      if (!id) return;
-      UIState.chatSources = [id];
-      const close = document.querySelector("#modalRoot [data-close]");
-      if (close) close.click();
-      Router.navigate("assistant");
-    },
-  };
-
+  const dispatch = buildDispatch(el, arg, id);
   const handler = dispatch[action];
-  if (handler) handler();
+  if (handler) return handler();
+}
+
+/**
+ * Context-dependent actions: name → factory `(el, arg, id) => handler`.
+ *
+ * Frozen so the action surface cannot grow a runtime-only alias, and so
+ * `KNOWN_ACTIONS` can list the keys without building closures. Each dispatch
+ * still calls the factory once for the live element.
+ */
+const CONTEXT_HANDLERS = Object.freeze({
+  "course-image-modal": (el, arg, id) => () => _modal("courseImageModal", id),
+  "academic-calendar-modal": (el, arg, id) => () =>
+    _modal("academicCalendarModal", id),
+  "edit-course": (el, arg, id) => () => _modal("courseModal", id),
+  "toggle-star-course": (el, arg, id) => () => toggleStarCourse(id),
+  "toggle-remove-view-course": (el, arg, id) => () => toggleRemoveFromView(id),
+  "del-course": (el, arg, id) => () => deleteCourse(id),
+  "event-edit": (el, arg, id) => () => _modal("eventModal", id),
+  "lesson-edit": (el, arg, id) => () => _modal("lessonModal", id),
+  "lesson-toggle": (el, arg, id) => () => toggleLesson(id),
+  "view-doc": (el, arg, id) => () => _modal("docModal", id),
+  "del-doc": (el, arg, id) => () => deleteDocument(id),
+  "recall-mark": (el, arg, id) => async () => {
+    const { markRecallResult } = await import("../../views/assistant.js");
+    markRecallResult(id, arg);
+  },
+  "chat-source": (el, arg, id) => () => {
+    const sourceId = id;
+    if (!sourceId) return;
+    const selected = UIState.chatSources || [];
+    UIState.set(
+      "chatSources",
+      selected.indexOf(sourceId) === -1
+        ? selected.concat(sourceId)
+        : selected.filter((value) => value !== sourceId),
+    );
+    Router.scheduleRender();
+  },
+  "plan-toggle": (el, arg, id) => () => togglePlanItem(id),
+  "plan-proposal-exclude": (el, arg, id) => () =>
+    toggleProposalExclusion(id),
+  "sub-toggle": (el, arg, id) => () => toggleSubtask(id, arg),
+  "task-toggle": (el, arg, id) => () => toggleTask(id),
+  "task-delete": (el, arg, id) => () => deleteTask(id),
+  "event-new": (el, arg) => () => _modal("eventModal", null, arg ? { due: arg } : {}),
+  "reading-edit": (el, arg, id) => () => _modal("readingModal", id),
+  "reading-toggle": (el, arg, id) => () => toggleReading(id),
+  "doc-reanalyse": (el, arg, id) => () => {
+    const doc = Store.db.documents.find((d) => d.id === id);
+    if (!doc) {
+      toast("Document not found.", "bad");
+      return;
+    }
+    try {
+      const result = NLP.analyse({
+        text: doc.text || "",
+        tables: doc.tables || [],
+        courseId: doc.courseId,
+        name: doc.name,
+      });
+      doc.analysis = result.pnu || null;
+      doc.standardAnalysis = result.standard || null;
+      RAG.reindexAll();
+      Store.saveNow();
+      toast("Document re-analysed.", "ok");
+      Router.scheduleRender();
+    } catch (e) {
+      toast(
+        (e && e.message) || "Re-analysis failed.",
+        "bad",
+        "Re-analysis",
+      );
+    }
+  },
+  "doc-ask": (el, arg, id) => () => {
+    if (!id) return;
+    UIState.set("chatSources", [id]);
+    const close = document.querySelector("#modalRoot [data-close]");
+    if (close) close.click();
+    Router.navigate("assistant");
+  },
+  "chat-suggest": (el) => async () => {
+    const q = el?.dataset?.q;
+    if (q) {
+      const { sendChat } = await import("../../views/assistant.js");
+      sendChat(q);
+    }
+  },
+  "chat-resend": (el) => async () => {
+    const q = el?.dataset?.q;
+    if (q) {
+      Router.navigate("assistant");
+      requestAnimationFrame(async () => {
+        const { sendChat } = await import("../../views/assistant.js");
+        sendChat(q);
+      });
+    }
+  },
+  "chat-remove-recent": (el) => () => {
+    const content = el?.dataset?.q;
+    if (!content) return;
+    Store.db.chat = Store.db.chat.filter(function (m) {
+      return !(m.role === "user" && m.content === content);
+    });
+    Store.saveNow();
+    Router.scheduleRender();
+  },
+  "chat-search": () => () => {
+    const recent = q("#sidebarRecent");
+    if (!recent) return;
+    let box = recent.querySelector(".sb-search-box");
+    if (box) {
+      box.remove();
+      recent.classList.remove("sb-search-active");
+      Router.scheduleRender();
+      return;
+    }
+    box = document.createElement("div");
+    box.className = "sb-search-box";
+    box.innerHTML =
+      '<input class="sb-search-input" type="text" placeholder="Search chats\u2026" aria-label="Search chats">';
+    recent.prepend(box);
+    recent.classList.add("sb-search-active");
+    const input = box.querySelector("input");
+    if (input) {
+      input.focus();
+      input.addEventListener("input", function () {
+        const query = input.value.trim();
+        if (!query) {
+          Router.scheduleRender();
+          return;
+        }
+        /* Filtered results are not "the current conversation", so no pill. */
+        renderRecents(q("#recentChatList"), Store.db.chat, {
+          query: query,
+          limit: 0,
+          activeFirst: false,
+          emptyLabel: "No matches",
+        });
+      });
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          input.value = "";
+          input.dispatchEvent(new window.Event("input", { bubbles: true }));
+          box.remove();
+          recent.classList.remove("sb-search-active");
+          Router.scheduleRender();
+        }
+      });
+    }
+  },
+});
+
+const CONTEXT_ACTION_NAMES = Object.freeze(Object.keys(CONTEXT_HANDLERS));
+
+/**
+ * Every action name the dispatcher can handle, derived from the static table,
+ * the context table, and the direct-action list — never by calling
+ * `buildDispatch` with placeholder nulls.
+ *
+ * The previous manual list had drifted: `chat-resend` is emitted by the
+ * recent-chat markup but was missing here, so clicking it logged a false
+ * "unknown action" warning while still working.
+ */
+const KNOWN_ACTIONS = new Set([
+  ...DIRECT_ACTIONS,
+  ...Object.keys(STATIC_HANDLERS),
+  ...CONTEXT_ACTION_NAMES,
+]);
+
+/**
+ * Build the per-dispatch handler table.
+ *
+ * Static handlers are spread from the frozen map; context handlers are
+ * instantiated once for this element. `KNOWN_ACTIONS` is the union of both
+ * tables plus `DIRECT_ACTIONS`, so a handler cannot exist without the guard
+ * knowing about it, and a mistyped data-act cannot look registered.
+ *
+ * @param {Element|null} el - The [data-act] element (null when probing keys)
+ * @param {string|null} arg - data-arg, falling back to data-id
+ * @param {string|null} id - data-id
+ * @returns {Object<string, Function>}
+ */
+export function buildDispatch(el, arg, id) {
+  const table = { ...STATIC_HANDLERS };
+  for (const name of CONTEXT_ACTION_NAMES) {
+    table[name] = CONTEXT_HANDLERS[name](el, arg, id);
+  }
+  return table;
 }
 
 /** Late-import a modal function from views to avoid top-level core -> views dep. */

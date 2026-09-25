@@ -1,17 +1,18 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { Store } from "../../src/core/store.js";
+import { setApiKey, clearApiKey } from "../../src/utils/secure.js";
 import {
   parseJson,
   chat,
   status,
   usable,
-  applyPreset,
   normalizeGeminiModel,
 } from "../../src/ai/client.js";
 import { CFG } from "../../src/config/constants.js";
 
 beforeEach(() => {
   Store.resetAll();
+  clearApiKey();
 });
 
 describe("parseJson", () => {
@@ -54,23 +55,23 @@ describe("status", () => {
 
   it("returns offline when no API key", () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "";
+    clearApiKey();
     const s = status();
     expect(s.on).toBe(false);
     expect(s.why).toContain("No API key");
   });
 
-  it("returns offline when key too short", () => {
+  it("returns offline when key too short (rejected at storage)", () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "short";
+    setApiKey("short");
     const s = status();
     expect(s.on).toBe(false);
-    expect(s.why).toContain("invalid");
+    expect(s.why).toContain("No API key");
   });
 
   it("returns online when key is valid", () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "a".repeat(20);
+    setApiKey("a".repeat(20));
     Store.db.settings.provider = "gemini";
     const s = status();
     expect(s.on).toBe(true);
@@ -79,7 +80,7 @@ describe("status", () => {
 
   it("returns online for OpenRouter provider", () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "sk-or-" + "a".repeat(20);
+    setApiKey("sk-or-" + "a".repeat(20), "openrouter");
     Store.db.settings.provider = "openrouter";
     const s = status();
     expect(s.on).toBe(true);
@@ -95,35 +96,22 @@ describe("usable", () => {
 
   it("returns false when no key", () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "";
+    clearApiKey();
     expect(usable()).toBe(false);
   });
 
   it("returns true when enabled and key is long enough", () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "a".repeat(20);
+    setApiKey("a".repeat(20));
     expect(usable()).toBe(true);
   });
 });
 
-describe("applyPreset", () => {
-  it("sets Gemini defaults", () => {
-    Store.db.settings.provider = "gemini";
-    applyPreset();
-    expect(Store.db.settings.model).toBe(CFG.gemini.model);
-    expect(Store.db.settings.baseUrl).toBe(CFG.gemini.baseUrl);
-  });
-
+describe("normalizeGeminiModel", () => {
   it("normalizes stale Gemini aliases to the current supported model", () => {
     expect(normalizeGeminiModel("gemini-2.5-flash")).toBe(CFG.gemini.model);
     expect(normalizeGeminiModel("gemini-3.6-flash")).toBe(CFG.gemini.model);
     expect(normalizeGeminiModel("")).toBe(CFG.gemini.model);
-  });
-
-  it("sets OpenRouter defaults", () => {
-    Store.db.settings.provider = "openrouter";
-    applyPreset();
-    expect(Store.db.settings.baseUrl).toBe(CFG.openrouter.baseUrl);
   });
 });
 
@@ -137,7 +125,7 @@ describe("chat", () => {
 
   it("returns error when no API key", async () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "";
+    clearApiKey();
     const r = await chat([{ role: "user", content: "hi" }]);
     expect(r.ok).toBe(false);
     expect(r.off).toBe(true);
@@ -145,21 +133,67 @@ describe("chat", () => {
 
   it("returns error when key too short", async () => {
     Store.db.settings.aiEnabled = true;
-    Store.db.settings.apiKey = "short";
+    setApiKey("short");
     const r = await chat([{ role: "user", content: "hi" }]);
     expect(r.ok).toBe(false);
     expect(r.off).toBe(true);
   });
-});
 
-describe("errorText", () => {
-  it("extracts error message from JSON body", () => {
-    const body = JSON.stringify({ error: { message: "Invalid key" } });
-    const result = import("../../src/ai/client.js").then((m) =>
-      m.errorText(401, body),
-    );
-    return result.then((text) => {
-      expect(text).toContain("Invalid key");
-    });
+  it("does not reach the network when the signal is already aborted", async () => {
+    Store.db.settings.aiEnabled = true;
+    setApiKey("test-key-0123456789abcdef");
+    const ctrl = new AbortController();
+    ctrl.abort();
+    const original = globalThis.fetch;
+    let called = false;
+    globalThis.fetch = () => {
+      called = true;
+      return Promise.resolve({ ok: true, json: async () => ({}) });
+    };
+    try {
+      const r = await chat([{ role: "user", content: "hi" }], {
+        signal: ctrl.signal,
+      });
+      expect(called).toBe(false);
+      expect(r.ok).toBe(false);
+      expect(r.cancelled).toBe(true);
+      expect(r.retryable).toBe(false);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("reports a cancel - not a retry or a timeout - when aborted mid-flight", async () => {
+    Store.db.settings.aiEnabled = true;
+    setApiKey("test-key-0123456789abcdef");
+    const ctrl = new AbortController();
+    const original = globalThis.fetch;
+    let attempts = 0;
+    globalThis.fetch = (_url, init) => {
+      attempts += 1;
+      return new Promise((_resolve, reject) => {
+        /* Abort once the request is genuinely in flight. */
+        const onAbort = () => {
+          const err = new Error("aborted");
+          err.name = "AbortError";
+          reject(err);
+        };
+        if (init.signal.aborted) return onAbort();
+        init.signal.addEventListener("abort", onAbort);
+        setTimeout(() => ctrl.abort(), 0);
+      });
+    };
+    try {
+      const r = await chat([{ role: "user", content: "hi" }], {
+        signal: ctrl.signal,
+        timeout: 30000,
+      });
+      expect(attempts).toBe(1);
+      expect(r.ok).toBe(false);
+      expect(r.cancelled).toBe(true);
+      expect(r.error).toBe("Cancelled.");
+    } finally {
+      globalThis.fetch = original;
+    }
   });
 });

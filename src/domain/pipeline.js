@@ -4,8 +4,6 @@
  */
 
 import { CFG } from "../config/constants.js";
-import { Store } from "../core/store.js";
-import { uid } from "../utils/helpers.js";
 import { ext } from "../utils/dom.js";
 import { NLP } from "./nlp.js";
 
@@ -32,6 +30,20 @@ Pipeline.withTimeout = function (promise, ms, message) {
   );
 };
 
+/** Truncate to CFG.maxDocChars and append a warning when cut. */
+function capDocText(text, warnings) {
+  let source = String(text || "");
+  if (source.length > CFG.maxDocChars) {
+    source = source.slice(0, CFG.maxDocChars);
+    warnings.push(
+      "Text truncated to " +
+        CFG.maxDocChars.toLocaleString() +
+        " characters (CFG.maxDocChars).",
+    );
+  }
+  return source;
+}
+
 Pipeline.analyseFile = function (file, opts, onProgress) {
   opts = opts || {};
   const isPdf = ext(file.name) === "pdf";
@@ -51,8 +63,10 @@ Pipeline.analyseFile = function (file, opts, onProgress) {
         "No text could be extracted from this file. It may be image-based or encrypted.",
       );
     }
+    const warnings = [];
+    const text = capDocText(ex.text, warnings);
     const result = NLP.analyse({
-      text: ex.text,
+      text: text,
       tables: ex.tables,
       courseId: opts.courseId,
       name: file.name,
@@ -64,10 +78,10 @@ Pipeline.analyseFile = function (file, opts, onProgress) {
       kind:
         opts.kind ||
         (window.Extract ? window.Extract.kind(file.name) : "other"),
-      text: ex.text,
+      text: text,
       tables: ex.tables,
       pages: ex.pages || null,
-      warnings: ex.warnings || 0,
+      warnings: warnings,
       result: result,
     };
   });
@@ -76,47 +90,25 @@ Pipeline.analyseFile = function (file, opts, onProgress) {
 Pipeline.analyseText = function (text, opts) {
   opts = opts || {};
   const name = opts.name || "Pasted text";
+  const warnings = [];
+  const source = capDocText(text, warnings);
   const result = NLP.analyse({
-    text: text,
+    text: source,
     tables: [],
     courseId: opts.courseId,
     name: name,
   });
   return {
     name: name,
-    size: text.length,
+    size: source.length,
     mime: "text/plain",
     kind: opts.kind || (window.Extract ? window.Extract.kind(name) : "other"),
-    text: text,
+    text: source,
     tables: [],
     pages: null,
-    warnings: 0,
+    warnings: warnings,
     result: result,
   };
-};
-
-Pipeline.saveDocument = function (payload, courseId) {
-  let text = String(payload.text || "");
-  const truncated = text.length > CFG.maxDocChars;
-  if (truncated) text = text.slice(0, CFG.maxDocChars);
-  const doc = {
-    id: uid("doc"),
-    courseId: courseId || null,
-    name: payload.name,
-    kind: payload.kind || "other",
-    mime: payload.mime || "",
-    size: payload.size || text.length,
-    chars: text.length,
-    truncated: truncated,
-    pages: payload.pages || null,
-    importedAt: new Date().toISOString(),
-    text: text,
-    tables: payload.tables || [],
-    chunkCount: 0,
-    source: "upload",
-  };
-  Store.db.documents.push(doc);
-  return doc;
 };
 
 export default Pipeline;

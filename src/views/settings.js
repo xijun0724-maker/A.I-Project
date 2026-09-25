@@ -1,13 +1,15 @@
 import { Store } from "../core/store.js";
 import { CFG } from "../config/constants.js";
-import * as AI from "../ai/index.js";
+import { status } from "../ai/index.js";
+import { Hybrid } from "../domain/rag-embeddings.js";
+import { Standards } from "../config/standards/index.js";
 import { esc, fmtBytes } from "../utils/helpers.js";
 import { isLoaded } from "../utils/cdn.js";
 import { statBox, pageHead, bar } from "./shared.js";
 
 export function settings() {
   const s = Store.db.settings;
-  const st = AI.status();
+  const st = status();
   const usage = Store.usage();
   const libs = {
     pdf: isLoaded("pdf"),
@@ -34,7 +36,7 @@ export function settings() {
     esc(st.on ? "connected: " + st.label : "offline mode") +
     "</span></div>";
   h +=
-    '<div class="notice info mb"><div>Journey A.I works without an API key - the syllabus analyser, deadline extraction, task decomposition, retrieval and planner are all built in. Adding an AI key adds conversational explanations, smarter parsing and a written study plan.</div></div>';
+    '<div class="notice info mb"><div>Journey A.I works without an API key - the syllabus analyser, deadline extraction, task decomposition, retrieval and planner are all built in. Adding a key adds conversational explanations, tutoring modes and a written study plan. Syllabi are always parsed on-device.</div></div>';
 
   h += '<label class="fld"><span>Provider</span><select id="setProvider">';
   h +=
@@ -92,7 +94,43 @@ export function settings() {
     '<span id="aiTestMsg" class="small"></span></div>';
   h +=
     '<p class="hint">The key is kept in this browser session and sent directly from your browser to the provider. It never passes through any server of ours.</p>';
-  h += "</div>";
+
+  /* Tutor mode */
+  const tutorMode = s.tutorMode || "explain";
+  h +=
+    '<div class="card"><div class="card-head"><h2>Tutor mode</h2></div>' +
+    '<div class="notice info mb"><div>Choose how the AI tutor responds: <strong>Explain</strong> gives full step-by-step answers. <strong>Socratic</strong> asks guiding questions so you discover the answer. <strong>Hint</strong> gives a single keyword or nudge.</div></div>' +
+    '<label class="fld"><span>Guidance level</span><select id="setTutorMode">' +
+    '<option value="explain"' +
+    (tutorMode === "explain" ? " selected" : "") +
+    ">Explain (full answers)</option>" +
+    '<option value="socratic"' +
+    (tutorMode === "socratic" ? " selected" : "") +
+    ">Socratic (guiding questions)</option>" +
+    '<option value="hint"' +
+    (tutorMode === "hint" ? " selected" : "") +
+    ">Hint (single nudge)</option>" +
+    "</select></div>";
+
+  /* Syllabus standard */
+  const standardsList = Standards.list();
+  const currentStandard = s.syllabusStandard || Standards.DEFAULT_ID;
+  h +=
+    '<div class="card"><div class="card-head"><h2>Syllabus standard</h2></div>' +
+    '<div class="notice info mb"><div>Used when reviewing imported syllabi for required sections, grading totals and session coverage. Switch between the PNU CMI template and a generic higher-education checklist.</div></div>' +
+    '<label class="fld"><span>Standard</span><select id="setSyllabusStandard">';
+  standardsList.forEach(function (std) {
+    h +=
+      '<option value="' +
+      esc(std.id) +
+      (currentStandard === std.id ? '" selected>' : '">') +
+      esc(std.label) +
+      (std.builtin ? "" : " (custom)") +
+      "</option>";
+  });
+  h +=
+    "</select></label>" +
+    '<p class="hint">Custom standards can be registered from code via <code>Standards.register()</code>.</p></div>';
 
   /* study preferences */
   h +=
@@ -116,6 +154,14 @@ export function settings() {
     '<label class="fld"><span>Planner horizon (weeks)</span><input id="setWeeks" type="number" min="1" max="20" value="' +
     s.plannerWeeks +
     '"></label>' +
+    "</div>" +
+    '<div class="grid g4">' +
+    '<label class="fld"><span>Academic Year</span><input id="setAcademicYear" placeholder="2026–2027" value="' +
+    esc(s.academicYear || "2026–2027") +
+    '"></label>' +
+    '<label class="fld"><span>Term / Semester</span><input id="setTermName" placeholder="1st Term" value="' +
+    esc(s.termName || "1st Term") +
+    '"></label>' +
     '<label class="fld"><span>Term starts</span><input id="setTermStart" type="date" value="' +
     esc(s.termStart || "") +
     '"></label>' +
@@ -123,8 +169,11 @@ export function settings() {
     esc(s.termEnd || "") +
     '"></label>' +
     "</div>" +
-    '<p class="hint">Term dates anchor week numbers and resolve dates on syllabi that omit the year.</p>' +
-    '<button class="btn primary mt" data-act="settings-save">Save preferences</button></div>';
+    '<p class="hint">Term dates anchor week numbers, calculate academic progress, and resolve syllabus dates.</p>' +
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;" class="mt">' +
+    '<button class="btn primary" data-act="settings-save">Save preferences</button>' +
+    '<button type="button" class="btn" data-act="academic-calendar-modal">Configure Academic Calendar</button>' +
+    '</div></div>';
 
   /* data */
   h +=
@@ -170,6 +219,15 @@ export function settings() {
     '<div class="kv"><span class="k">Retrieval index</span><span class="v">' +
     (Store.db.chunks || []).length +
     " passages</span></div>" +
+    '<div class="kv"><span class="k">Hybrid retrieval</span><span class="v">' +
+    (s.hybridRAG
+      ? '<span class="badge ok">on</span>'
+      : '<span class="badge mute">off (BM25)</span>') +
+    "</span></div>" +
+    '<label class="row small" style="gap:8px;margin-top:6px"><input type="checkbox" id="setHybridRAG"' +
+    (s.hybridRAG ? " checked" : "") +
+    "> Enable hybrid retrieval (BM25 + embeddings)</label>" +
+    '<p class="hint">Off by default. When on, loads a small ONNX embedding model from a CDN on first use and blends it with BM25. Falls back to pure BM25 if the model is unavailable.</p>' +
     '<div class="kv"><span class="k">Offline capability</span><span class="v"><span class="badge ok">full</span></span></div>' +
     '<button class="btn block sm mt" data-act="reindex">Rebuild retrieval index</button></div>';
 
@@ -182,10 +240,33 @@ export function settings() {
     '<p class="small muted">Resetting removes every course, task, document and chat message from this browser. Export a backup first if you want to keep it.</p>' +
     '<button class="btn danger block sm" data-act="data-reset">Reset everything</button></div>';
   h += "</div></div>";
-  return h;
+  return '<div class="view-padded">' + h + "</div>";
 }
 
-export function afterSettings(_root) {}
+export function afterSettings(root) {
+  const sel = root.querySelector("#setTutorMode");
+  if (sel) {
+    sel.addEventListener("change", function () {
+      Store.db.settings.tutorMode = sel.value;
+      Store.saveNow();
+    });
+  }
+  const std = root.querySelector("#setSyllabusStandard");
+  if (std) {
+    std.addEventListener("change", function () {
+      Store.db.settings.syllabusStandard = std.value;
+      Store.saveNow();
+    });
+  }
+  const hybrid = root.querySelector("#setHybridRAG");
+  if (hybrid) {
+    hybrid.addEventListener("change", function () {
+      Store.db.settings.hybridRAG = hybrid.checked;
+      if (!hybrid.checked) Hybrid.reset();
+      Store.saveNow();
+    });
+  }
+}
 
 export const settingsView = {
   title: "Settings",

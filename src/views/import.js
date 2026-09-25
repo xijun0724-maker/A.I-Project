@@ -1,4 +1,4 @@
-import { CFG } from "../config/constants.js";
+import { CFG, KIND_LABEL } from "../config/constants.js";
 import { Store } from "../core/store.js";
 import { UI, UIState } from "../core/state.js";
 import { Router } from "../core/router.js";
@@ -15,18 +15,12 @@ export function importView() {
 }
 
 export function importPick() {
-  const KIND_LABEL = (window.Extract && window.Extract.KIND_LABEL) || {
-    syllabus: "Syllabus",
-    notes: "Lecture notes",
-    textbook: "Textbook",
-    brief: "Assignment brief",
-    other: "Other",
-  };
   const defaultCourse =
     UIState.courseId !== "all"
       ? UIState.courseId
       : (Store.db.courses[0] && Store.db.courses[0].id) || "";
   return (
+    '<div class="view-padded">' +
     pageHead(
       "Import documents",
       "Upload a syllabus, brief, notes or textbook. Journey A.I extracts the text and tables, then maps them to topics, deadlines, readings and subtasks.",
@@ -34,14 +28,14 @@ export function importPick() {
     '<div class="grid g-2-1">' +
     '<div class="card">' +
     "<h2>1. Choose what to analyse</h2>" +
-    '<div class="drop" id="dropZone">' +
+    '<div class="drop" id="dropZone" role="button" tabindex="0" aria-label="Choose files to analyse, or drop files here">' +
     '<div class="strong">Drop files here, or click to browse</div>' +
     '<div class="tiny muted mt-s">' +
     (window.Extract ? window.Extract.SUPPORTED : "PDF, Word, text, CSV") +
     " - a syllabus is the best place to start</div>" +
     '<input type="file" id="fileInput" multiple accept="' +
     (window.Extract ? window.Extract.accept : ".pdf,.docx,.txt,.csv") +
-    '" class="hide">' +
+    '" class="hide" hidden>' +
     "</div>" +
     '<div class="row mt"><span class="tiny muted">Selected:</span><span class="tiny" id="pickedFiles">nothing yet</span></div>' +
     '<details class="acc mt"><summary>Or paste text instead (works offline, always available)</summary>' +
@@ -55,7 +49,7 @@ export function importPick() {
     '<label class="fld"><span>Course</span><select id="impCourse">' +
     courseSelectOptions(defaultCourse, false) +
     '<option value="__new">+ Create a new course…</option></select></label>' +
-    '<div id="newCourseFields" class="hide">' +
+    '<div id="newCourseFields" class="hide" hidden>' +
     '<div class="grid g2"><label class="fld"><span>Code</span><input id="newCode" placeholder="CS 301"></label>' +
     '<label class="fld"><span>Title</span><input id="newTitle" placeholder="Data Structures"></label></div>' +
     "</div>" +
@@ -77,6 +71,7 @@ export function importPick() {
     '<div class="notice info"><div>Type it as <strong>Course syllabus</strong> and a full lesson roadmap with deadlines and readings is generated. Other types are indexed for the AI assistant and summarised.</div></div>' +
     '<div id="impMsg" class="mt"></div>' +
     "</div>" +
+    "</div>" +
     "</div>"
   );
 }
@@ -88,16 +83,33 @@ export function importBind(root) {
   let picked = [];
 
   const courseSel = q("#impCourse", root);
-  if (courseSel)
+  if (courseSel) {
     courseSel.addEventListener("change", function () {
-      q("#newCourseFields", root).classList.toggle(
-        "hide",
-        courseSel.value !== "__new",
-      );
+      const fields = q("#newCourseFields", root);
+      if (!fields) return;
+      const show = courseSel.value === "__new";
+      fields.classList.toggle("hide", !show);
+      fields.hidden = !show;
     });
+    /* With an empty course list "+ Create a new course…" is preselected, so
+       no change event ever fires — show the fields immediately. */
+    if (courseSel.value === "__new") {
+      const fields = q("#newCourseFields", root);
+      if (fields) {
+        fields.classList.remove("hide");
+        fields.hidden = false;
+      }
+    }
+  }
 
   dz.addEventListener("click", function () {
     input.click();
+  });
+  dz.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+      e.preventDefault();
+      input.click();
+    }
   });
   ["dragenter", "dragover"].forEach(function (ev) {
     dz.addEventListener(ev, function (e) {
@@ -220,13 +232,6 @@ export function importBind(root) {
 }
 
 export function importReview() {
-  const KIND_LABEL = (window.Extract && window.Extract.KIND_LABEL) || {
-    syllabus: "Syllabus",
-    notes: "Lecture notes",
-    textbook: "Textbook",
-    brief: "Assignment brief",
-    other: "Other",
-  };
   const draft = UI.draft;
   let h = pageHead(
     "Review what was found",
@@ -473,14 +478,17 @@ export function importReview() {
     h += "</div>";
   });
 
-  return h;
+  return '<div class="view-padded">' + h + "</div>";
 }
 
 function standardReview(analysis) {
   const tone =
     analysis.score >= 90 ? "ok" : analysis.score >= 70 ? "info" : "high";
+  const stdLabel = analysis.standardLabel || "Syllabus standard";
   let h =
-    '<details class="acc mb" open><summary>PNU syllabus standard <span class="badge ' +
+    '<details class="acc mb" open><summary>' +
+    esc(stdLabel) +
+    ' <span class="badge ' +
     tone +
     '">' +
     analysis.score +
@@ -529,7 +537,9 @@ function standardReview(analysis) {
     h += "</div>";
   } else {
     h +=
-      '<div class="notice ok mt"><div>Core PNU syllabus sections and extracted evidence look consistent.</div></div>';
+      '<div class="notice ok mt"><div>Core ' +
+      esc(stdLabel) +
+      " sections and extracted evidence look consistent.</div></div>";
   }
   return h + "</div></details>";
 }

@@ -1,10 +1,12 @@
-const CACHE_NAME = "journeyai-v4";
+const CACHE_NAME = "journeyai-v7";
 const CDN_ASSETS = [
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.8.0/mammoth.browser.min.js",
 ];
-const SHELL_ASSETS = ["/", "/index.html"];
+/* Relative to the service worker's own location, so the shell resolves on a
+   GitHub Pages project site (served from /<repo>/) as well as at a root. */
+const SHELL_ASSETS = ["./", "./index.html"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -14,6 +16,8 @@ self.addEventListener("install", (event) => {
           cache.add(url).catch(() => null),
         ),
       );
+    }).catch((err) => {
+      console.error("SW install failed:", err);
     }),
   );
   self.skipWaiting();
@@ -27,6 +31,8 @@ self.addEventListener("activate", (event) => {
           .filter((key) => key !== CACHE_NAME)
           .map((key) => caches.delete(key)),
       );
+    }).catch((err) => {
+      console.error("SW activate failed:", err);
     }),
   );
   self.clients.claim();

@@ -64,7 +64,7 @@ export function readingModal(readingId) {
       .map(function (d) {
         return (
           '<option value="' +
-          d.id +
+          esc(d.id) +
           '"' +
           (r && r.docId === d.id ? " selected" : "") +
           ">" +

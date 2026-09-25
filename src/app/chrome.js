@@ -1,11 +1,8 @@
 /**
- * App chrome wiring — theme toggle, sidebar collapse, nav toggle,
- * and header button listeners.
+ * App chrome wiring — theme toggle, sidebar collapse, profile dropdown.
  */
 
-import { UI } from "../core/state.js";
-import { Router } from "../core/router.js";
-import { Views } from "../core/state.js";
+import { Store } from "../core/store.js";
 import { q } from "../utils/dom.js";
 
 function applyTheme(t) {
@@ -18,15 +15,23 @@ function initTheme() {
     saved = localStorage.getItem("journeyai.theme");
   } catch (_e) {}
   if (!saved) {
-    saved = window.matchMedia?.("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    saved = "dark";
   }
   applyTheme(saved);
 
   const btn = q("#btnThemeToggle");
+  const btnRail = q("#btnThemeToggleRail");
   if (btn) {
     btn.addEventListener("click", () => {
+      saved = saved === "dark" ? "light" : "dark";
+      applyTheme(saved);
+      try {
+        localStorage.setItem("journeyai.theme", saved);
+      } catch (_e) {}
+    });
+  }
+  if (btnRail) {
+    btnRail.addEventListener("click", () => {
       saved = saved === "dark" ? "light" : "dark";
       applyTheme(saved);
       try {
@@ -37,11 +42,20 @@ function initTheme() {
   return saved;
 }
 
+/** Width at or below which the sidebar becomes an off-canvas drawer */
+const DRAWER_QUERY = "(max-width: 980px)";
+
+function isDrawerWidth() {
+  return window.matchMedia ? window.matchMedia(DRAWER_QUERY).matches : false;
+}
+
 function initSidebar() {
   const app = q("#app");
   const sidebar = q(".sidebar");
   const toggle = q("#btnSidebarToggle");
   if (!app || !sidebar || !toggle) return;
+
+  const scrim = q("#sbMobileScrim");
 
   let collapsed = false;
   try {
@@ -49,25 +63,38 @@ function initSidebar() {
       localStorage.getItem("journeyai.sidebarCollapsed") === "1";
   } catch (_e) {}
 
+  const drawerOpen = () => sidebar.classList.contains("mobile-open");
+
   function apply() {
     app.classList.toggle("sidebar-collapsed", collapsed);
-    sidebar.classList.toggle("collapsed", collapsed);
-    toggle.setAttribute("aria-expanded", String(!collapsed));
-    toggle.setAttribute(
-      "aria-label",
-      collapsed ? "Expand sidebar" : "Collapse sidebar",
-    );
-    toggle.setAttribute(
-      "title",
-      collapsed ? "Expand sidebar" : "Collapse sidebar",
-    );
-    toggle.dataset.tip = collapsed
-      ? "Expand sidebar"
-      : "Collapse sidebar";
+    /* The same button drives two different things: collapse the rail on
+       desktop, open the drawer on narrow screens. */
+    if (isDrawerWidth()) {
+      const open = drawerOpen();
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+      toggle.setAttribute("data-tooltip", open ? "Close menu" : "Open menu");
+    } else {
+      toggle.setAttribute("aria-expanded", String(!collapsed));
+      const lbl = collapsed ? "Expand sidebar" : "Collapse sidebar";
+      toggle.setAttribute("aria-label", lbl);
+      toggle.setAttribute("data-tooltip", lbl);
+    }
+  }
+
+  function setDrawer(open) {
+    sidebar.classList.toggle("mobile-open", open);
+    if (scrim) scrim.classList.toggle("open", open);
+    apply();
   }
 
   apply();
+
   toggle.addEventListener("click", () => {
+    if (isDrawerWidth()) {
+      setDrawer(!drawerOpen());
+      return;
+    }
     collapsed = !collapsed;
     apply();
     try {
@@ -77,35 +104,102 @@ function initSidebar() {
       );
     } catch (_e) {}
   });
+
+  /* Tapping the scrim, picking a destination, or pressing Escape closes the drawer. */
+  if (scrim) scrim.addEventListener("click", () => setDrawer(false));
+
+  sidebar.addEventListener("click", (e) => {
+    if (!drawerOpen()) return;
+    const hit = e.target.closest ? e.target.closest("[data-act]") : null;
+    if (hit) setDrawer(false);
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && drawerOpen()) setDrawer(false);
+  });
+
+  /* Widening past the breakpoint must not leave a stray open drawer or scrim. */
+  const mq = window.matchMedia ? window.matchMedia(DRAWER_QUERY) : null;
+  if (mq) {
+    const onChange = () => setDrawer(false);
+    if (mq.addEventListener) mq.addEventListener("change", onChange);
+    else if (mq.addListener) mq.addListener(onChange);
+  }
 }
 
-function initButtons() {
-  q("#btnImport")?.addEventListener("click", () => {
-    UI.draft = null;
-    Router.navigate("import");
-  });
-  q("#btnAsk")?.addEventListener("click", () =>
-    Router.navigate("assistant"),
-  );
-  q("#btnQuickAdd")?.addEventListener("click", () =>
-    Views.eventModal?.(null, {}),
-  );
+function initProfileDropdown() {
+  const btn = q("#btnProfile");
+  const dropdown = q("#profileDropdown");
+  if (!btn || !dropdown) return;
 
-  const navToggle = q("#navToggle");
-  if (navToggle) {
-    navToggle.addEventListener("click", () => {
-      const sidebar = q(".sidebar");
-      sidebar.classList.toggle("open");
-      navToggle.setAttribute(
-        "aria-expanded",
-        sidebar.classList.contains("open"),
-      );
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = dropdown.classList.toggle("open");
+    btn.setAttribute("aria-expanded", isOpen ? "true" : "false");
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!dropdown.contains(e.target) && e.target !== btn) {
+      dropdown.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+    }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && dropdown.classList.contains("open")) {
+      dropdown.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
+      btn.focus();
+    }
+  });
+
+  dropdown.querySelectorAll("[data-act], a").forEach((item) => {
+    item.addEventListener("click", () => {
+      dropdown.classList.remove("open");
+      btn.setAttribute("aria-expanded", "false");
     });
+  });
+}
+
+function renderProfile() {
+  const nameEls = document.querySelectorAll(".sb-username");
+  const avatarEls = document.querySelectorAll(".sb-avatar");
+  const emailEl = document.querySelector(".sb-user-email");
+  if (!nameEls.length && !avatarEls.length) return;
+
+  const settings = (Store.db && Store.db.settings) || {};
+  const rawName = settings.userName;
+  const name = rawName && rawName.trim() ? rawName.trim() : "User";
+  const email = settings.userEmail || "";
+
+  nameEls.forEach((el) => {
+    el.textContent = name;
+  });
+
+  if (emailEl) {
+    emailEl.textContent = email;
   }
+
+  const initials =
+    name === "User"
+      ? "U"
+      : name
+          .split(" ")
+          .map((w) => w[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase() || "U";
+
+  avatarEls.forEach((el) => {
+    el.textContent = initials;
+  });
 }
 
 export function initChrome() {
   initTheme();
   initSidebar();
-  initButtons();
+  initProfileDropdown();
+  renderProfile();
+  Store.on("load", renderProfile);
+  Store.on("save", renderProfile);
 }

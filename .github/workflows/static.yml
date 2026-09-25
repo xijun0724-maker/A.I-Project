@@ -22,8 +22,40 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # Single deploy job since we're just deploying
+# Gate: nothing deploys unless lint, tests and the production build all pass.
+# Pages serves this repo as raw source (index.html loads src/main.js as an ES
+# module), so a dangling import blanks the live site. Only the build catches
+# that, which is why this job exists. The build output is NOT uploaded — the
+# deploy job below publishes the working tree that the gate just verified.
+verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint -- --max-warnings 0
+      - name: Lint CSS
+        run: npm run lint:css
+      - name: Test
+        run: npm test
+      - name: Coverage
+        run: npm run test:coverage
+      - name: Build
+        run: npm run build
+
+  # Deploys the verified working tree (raw source), not dist/. index.html is
+  # production code here: it loads src/main.js as an ES module and registers
+  # sw.js with a relative path. Do not change path to dist without also
+  # rewriting the shell, SW scope, and CDN script tags for a bundled layout.
   deploy:
+    needs: verify
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -36,7 +68,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Upload entire repository
+          # Upload the source tree the verify job just gated (not dist/).
           path: '.'
       - name: Deploy to GitHub Pages
         id: deployment

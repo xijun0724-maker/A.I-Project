@@ -1,15 +1,66 @@
 /**
- * localStorage persistence layer for Journey A.I
- * Handles data storage, migrations, and schema management.
+ * Persistence layer for Journey A.I.
+ *
+ * localStorage is the synchronous bootstrap path (and the only path when
+ * IndexedDB is unavailable, e.g. tests / happy-dom). IndexedDB mirrors every
+ * successful persist with a larger capacity; `hydrateFromIDB()` restores from
+ * it when localStorage is missing, unreadable, or older than the mirror.
  */
 
 import { CFG } from "../config/constants.js";
 import { debounce, fmtBytes, slug } from "../utils/helpers.js";
 import { toast } from "../utils/dom.js";
 import { createBlankDB, migrateSchema } from "../config/settings.js";
+import { stripKey } from "../utils/secure.js";
+import { idbAvailable, idbGet, idbSet } from "./idb.js";
+
+// Sidecar key: last successful persist timestamp for the main DB key.
+// Used to decide whether IndexedDB holds a newer snapshot than localStorage.
+const AT_KEY = CFG.storageKey + ".at";
 
 // Singleton database instance
 let db = null;
+
+/* Monotonic mirror revision. Bumped on every successful persist and stored
+   with the IndexedDB record so hydrate can break timestamp ties and other
+   tabs can tell a real write from a same-ms rewrite. */
+let _rev = 0;
+
+/* Set when stored data belongs to a newer app version or failed migration.
+   While quarantined, persist() refuses to write so the newer bytes in
+   localStorage are never overwritten by a blank/older schema. */
+let _quarantined = false;
+
+function isQuarantined() {
+  return _quarantined;
+}
+
+/**
+ * Lock the live database's top-level shape in tests and dev.
+ *
+ * `Object.seal` allows reassigning schema keys (`db.courses = []`) but throws
+ * in strict mode when code invents a new root key (`db.coursez = []`) — the
+ * typo class of bug that silently never persists. Production stays unsealed so
+ * a future migration can add keys before they land in `createBlankDB`.
+ * @param {Object} d
+ * @returns {Object} The same object, sealed when applicable
+ */
+function maybeSeal(d) {
+  if (!d || typeof d !== "object") return d;
+  try {
+    const env =
+      (typeof import.meta !== "undefined" && import.meta.env) || undefined;
+    const privileged =
+      (env && (env.DEV || env.MODE === "test")) ||
+      (typeof process !== "undefined" &&
+        process.env &&
+        (process.env.NODE_ENV === "test" || process.env.VITEST));
+    if (privileged) Object.seal(d);
+  } catch (_e) {
+    /* sealing is a development aid only */
+  }
+  return d;
+}
 
 // Event bus: lightweight pub/sub for Store changes
 const listeners = {};
@@ -39,8 +90,9 @@ function emit(event, data) {
   (listeners[event] || []).forEach(function (fn) {
     try {
       fn(data);
-    } catch (_e) {
-      /* swallow listener errors */
+    } catch (e) {
+      if (typeof console !== "undefined" && console.error)
+        console.error('Store listener for "' + event + '" failed', e);
     }
   });
 }
@@ -49,29 +101,28 @@ function emit(event, data) {
 const MAX_STORAGE_KEYS = 200;
 
 /**
- * Evict oldest non-essential keys when storage is near capacity.
+ * Evict oldest Journey-owned keys when storage is near capacity.
+ * Never touches other applications' keys on a shared origin.
+ * Always keeps the main DB key and its timestamp sidecar.
  */
 function evictIfNeeded() {
   try {
-    let keys = Object.keys(localStorage);
+    let keys = Object.keys(localStorage).filter(function (k) {
+      return k.startsWith("journeyai.");
+    });
     if (keys.length < MAX_STORAGE_KEYS) return;
-    // Remove non-Journey keys first (oldest by insertion order)
+    // Drop oldest Journey keys first, but always keep the current DB key.
     for (let i = 0; i < keys.length && keys.length >= MAX_STORAGE_KEYS; i++) {
       const k = keys[i];
-      if (k !== CFG.storageKey && !k.startsWith("journeyai.")) {
+      if (k !== CFG.storageKey && k !== AT_KEY) {
         localStorage.removeItem(k);
-      }
-    }
-    keys = Object.keys(localStorage);
-    // If still over, remove oldest Journey keys (keep current DB)
-    for (let i = 0; i < keys.length && keys.length >= MAX_STORAGE_KEYS; i++) {
-      const k = keys[i];
-      if (k !== CFG.storageKey) {
-        localStorage.removeItem(k);
+        keys = keys.filter(function (x) {
+          return x !== k;
+        });
       }
     }
   } catch (_e) {
-    /* ignore eviction errors */
+    console.warn("Store: eviction failed", _e);
   }
 }
 
@@ -174,8 +225,73 @@ function deduplicateData(data) {
   return changed;
 }
 
+function getLsAt() {
+  try {
+    return Number(localStorage.getItem(AT_KEY)) || 0;
+  } catch (_e) {
+    return 0;
+  }
+}
+
+/** Persisted mirror revision sidecar (`journeyai.db.v1.rev`), 0 when absent. */
+function getLsRev() {
+  try {
+    return Number(localStorage.getItem(AT_KEY + ".rev")) || 0;
+  } catch (_e) {
+    return 0;
+  }
+}
+
+/** Post a save notice on the cross-tab channel (no-op when unsupported). */
+function broadcastSave(rev, savedAt) {
+  try {
+    if (typeof BroadcastChannel === "undefined") return;
+    const ch = new BroadcastChannel("journeyai-store");
+    ch.postMessage({ key: CFG.storageKey, rev: rev, savedAt: savedAt });
+    ch.close();
+  } catch (_e) {
+    /* channel is best-effort; storage events still cover localStorage writes */
+  }
+}
+
 /**
- * Load database from localStorage
+ * Parse, migrate and adopt a JSON snapshot into the live db.
+ * Throws on unreadable input. Returns nothing; sets `db` / `_quarantined`.
+ */
+function ingestRaw(raw) {
+  const d = JSON.parse(raw);
+  if (!d || typeof d !== "object") throw new Error("bad");
+  const base = blank();
+  if (!d.settings || typeof d.settings !== "object") d.settings = {};
+  Object.keys(base).forEach(function (k) {
+    if (d[k] === undefined) d[k] = base[k];
+  });
+  Object.keys(base.settings).forEach(function (k) {
+    if (d.settings[k] === undefined) d.settings[k] = base.settings[k];
+  });
+
+  const migrated = migrateSchema(d);
+  if (!migrated) {
+    /* Newer-version or half-migrated data: run blank in memory but refuse
+       every future persist so the stored bytes stay exactly as they are. */
+    _quarantined = true;
+    db = maybeSeal(blank());
+    setTimeout(function () {
+      toast(
+        "This browser holds data from a newer version of Journey A.I. It was left untouched - update the app or export a backup from the newer version first.",
+        "bad",
+        "Storage version",
+      );
+    }, 400);
+    return;
+  }
+  _quarantined = false;
+  db = maybeSeal(migrated);
+  if (deduplicateData(db)) setTimeout(persist, 0);
+}
+
+/**
+ * Load database from localStorage (synchronous bootstrap path).
  * @returns {Object} Database object
  */
 function load() {
@@ -186,39 +302,15 @@ function load() {
     raw = null;
   }
   if (!raw) {
-    db = blank();
+    _quarantined = false;
+    db = maybeSeal(blank());
     emit("load", db);
     return db;
   }
   try {
-    const d = JSON.parse(raw);
-    if (!d || typeof d !== "object") throw new Error("bad");
-    const base = blank();
-    if (!d.settings || typeof d.settings !== "object") d.settings = {};
-    Object.keys(base).forEach(function (k) {
-      if (d[k] === undefined) d[k] = base[k];
-    });
-    Object.keys(base.settings).forEach(function (k) {
-      if (d.settings[k] === undefined) d.settings[k] = base.settings[k];
-    });
-
-    const migrated = migrateSchema(d);
-    if (!migrated) {
-      db = blank();
-      setTimeout(function () {
-        toast(
-          "This browser holds data from a newer version of Journey A.I. It was left untouched - update the app or export a backup from the newer version first.",
-          "bad",
-          "Storage version",
-        );
-      }, 400);
-      emit("load", db);
-      return db;
-    }
-    db = migrated;
-    if (deduplicateData(db)) setTimeout(persist, 0);
+    ingestRaw(raw);
   } catch (_e) {
-    db = blank();
+    db = maybeSeal(blank());
     setTimeout(function () {
       toast("Saved data could not be read and was reset.", "bad", "Storage");
     }, 400);
@@ -228,31 +320,111 @@ function load() {
 }
 
 /**
- * Persist database to localStorage
- * @returns {boolean} True if successful
+ * Restore from the IndexedDB mirror when it holds a newer (or only) snapshot
+ * than localStorage. No-op when IndexedDB is unavailable, quarantined, or
+ * localStorage is same-age/newer. Call after `load()`, before views render.
+ * @returns {Promise<boolean>} True when the mirror was adopted
+ */
+async function hydrateFromIDB() {
+  if (_quarantined) return false;
+  if (!idbAvailable()) return false;
+
+  let rec = null;
+  try {
+    rec = await idbGet(CFG.storageKey);
+  } catch (_e) {
+    return false;
+  }
+  if (!rec || typeof rec.json !== "string") return false;
+
+  let lsRaw = null;
+  try {
+    lsRaw = localStorage.getItem(CFG.storageKey);
+  } catch (_e) {
+    lsRaw = null;
+  }
+  const lsAt = getLsAt();
+  const idbAt = Number(rec.savedAt) || 0;
+  const idbRev = Number(rec.rev) || 0;
+  const lsRev = getLsRev();
+  // localStorage present and strictly newer (or same-time newer rev) → keep it.
+  if (lsRaw) {
+    if (lsAt > idbAt) return false;
+    if (lsAt === idbAt && lsRev >= idbRev) return false;
+  }
+
+  try {
+    ingestRaw(rec.json);
+  } catch (_e) {
+    return false;
+  }
+  if (idbRev > _rev) _rev = idbRev;
+  // Mirror back so the sidecar timestamp and localStorage catch up.
+  persist();
+  emit("load", db);
+  return true;
+}
+
+/**
+ * Persist database to localStorage and mirror to IndexedDB.
+ * @returns {boolean} True if a durable copy was written
  */
 function persist() {
+  if (_quarantined) return false;
   try {
     // Strip the API key from the persisted copy without clearing the live session key.
-    const snapshot =
-      db && db.settings
-        ? { ...db, settings: { ...db.settings, apiKey: "" } }
-        : db;
+    const snapshot = stripKey(db);
     const json = JSON.stringify(snapshot);
     if (json.length > CFG.storage.maxBytes * 0.95) {
       toast(
-        "Storage is approaching capacity - remove some files in Library.",
+        "Storage is approaching capacity - export a backup and remove some files in Library.",
         "warn",
         "Storage warning",
       );
     }
     evictIfNeeded();
-    localStorage.setItem(CFG.storageKey, json);
+
+    const savedAt = Date.now();
+    _rev += 1;
+    let lsOk = false;
+    try {
+      localStorage.setItem(CFG.storageKey, json);
+      try {
+        localStorage.setItem(AT_KEY, String(savedAt));
+        localStorage.setItem(AT_KEY + ".rev", String(_rev));
+      } catch (_at) {
+        /* sidecar is best-effort; hydrate falls back to IDB savedAt/rev */
+      }
+      lsOk = true;
+    } catch (_ls) {
+      /* quota exceeded — IndexedDB mirror below is the overflow path */
+    }
+
+    if (idbAvailable()) {
+      idbSet(CFG.storageKey, {
+        json: json,
+        savedAt: savedAt,
+        rev: _rev,
+      }).catch(function (_e) {
+        /* fire-and-forget; next persist retries */
+      });
+    }
+    broadcastSave(_rev, savedAt);
+
+    if (!lsOk && !idbAvailable()) {
+      toast(
+        "Browser storage is full - recent changes may be lost. Export a backup now, then remove files in Library.",
+        "bad",
+        "Storage full",
+      );
+      return false;
+    }
+
     emit("save", { bytes: json.length });
     return true;
   } catch (_e) {
     toast(
-      "Browser storage is full - large documents may not be saved. Remove some files in Library.",
+      "Browser storage is full - recent changes may be lost. Export a backup now, then remove files in Library.",
       "bad",
       "Storage full",
     );
@@ -269,9 +441,10 @@ const save = debounce(function () {
 
 /**
  * Immediate save
+ * @returns {boolean} False when quarantined or the write failed
  */
 function saveNow() {
-  persist();
+  return persist();
 }
 
 /**
@@ -284,7 +457,7 @@ function update(newDb) {
     console.error("Store.update: rejected invalid data");
     return;
   }
-  db = newDb;
+  db = maybeSeal(newDb);
   saveNow();
   emit("update", db);
 }
@@ -389,7 +562,7 @@ function removeCourse(id) {
  * Reset all data to blank state
  */
 function resetAll() {
-  db = blank();
+  db = maybeSeal(blank());
   saveNow();
   emit("reset", db);
 }
@@ -399,9 +572,15 @@ export const Store = {
   get db() {
     return db;
   },
+  /** Current cross-tab mirror revision (0 before the first persist). */
+  rev() {
+    return _rev;
+  },
   blank,
   load,
+  hydrateFromIDB,
   persist,
+  isQuarantined,
   deduplicateData,
   save,
   saveNow,

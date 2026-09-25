@@ -1,19 +1,25 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { setApiKey, getApiKey, clearApiKey, hasApiKey, hydrateKey, stripKey } from '../../src/utils/secure.js';
 
-const storage = {};
-const mockSS = {
-  getItem: vi.fn((k) => storage[k] || null),
-  setItem: vi.fn((k, v) => { storage[k] = String(v); }),
-  removeItem: vi.fn((k) => { delete storage[k]; }),
-};
-Object.defineProperty(globalThis, 'sessionStorage', { value: mockSS, writable: true });
+const STORAGE_KEY = 'journeyai.secure.v2';
+
+const sessionStorageMock = vi.hoisted(() => {
+  let store = {};
+  return {
+    getItem: (k) => store[k] || null,
+    setItem: (k, v) => { store[k] = v; },
+    removeItem: (k) => { delete store[k]; },
+    clear: () => { Object.keys(store).forEach(k => delete store[k]); },
+    _store: () => store,
+  };
+});
+
+vi.stubGlobal('sessionStorage', sessionStorageMock);
+
+import { setApiKey, getApiKey, clearApiKey, hasApiKey, hydrateKey, stripKey } from '../../src/utils/secure.js';
 
 describe('secure.js', () => {
   beforeEach(() => {
-    Object.keys(storage).forEach(k => delete storage[k]);
-    mockSS.getItem.mockClear();
-    mockSS.setItem.mockClear();
+    sessionStorageMock.clear();
   });
 
   describe('setApiKey / getApiKey', () => {
@@ -23,29 +29,29 @@ describe('secure.js', () => {
     });
 
     it('stores a key under a specific provider namespace', () => {
-      setApiKey('openai-key', 'openai');
-      expect(getApiKey('openai')).toBe('openai-key');
+      setApiKey('openai-key-123', 'openai');
+      expect(getApiKey('openai')).toBe('openai-key-123');
       expect(getApiKey('gemini')).toBe('');
     });
 
     it('deletes the key when called with empty string', () => {
-      setApiKey('sk-abc');
-      expect(getApiKey()).toBe('sk-abc');
+      setApiKey('sk-abc-1234');
+      expect(getApiKey()).toBe('sk-abc-1234');
       setApiKey('');
       expect(getApiKey()).toBe('');
     });
 
     it('deletes the key when called with null', () => {
-      setApiKey('sk-abc');
+      setApiKey('sk-abc-1234');
       setApiKey(null);
       expect(getApiKey()).toBe('');
     });
 
     it('stores both namespaced and legacy apiKey for Gemini', () => {
-      setApiKey('g-key', 'gemini');
-      const raw = JSON.parse(storage['journeyai.secure']);
-      expect(raw.gemini_apiKey).toBe('g-key');
-      expect(raw.apiKey).toBe('g-key');
+      setApiKey('g-key-12345', 'gemini');
+      const raw = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+      expect(raw.keys.gemini.value).toBe('g-key-12345');
+      expect(raw.keys.apiKey.value).toBe('g-key-12345');
     });
   });
 
@@ -59,10 +65,10 @@ describe('secure.js', () => {
     });
 
     it('only removes the target provider key', () => {
-      setApiKey('g-key', 'gemini');
-      setApiKey('o-key', 'openai');
+      setApiKey('g-key-12345', 'gemini');
+      setApiKey('o-key-12345', 'openai');
       clearApiKey('openai');
-      expect(getApiKey('gemini')).toBe('g-key');
+      expect(getApiKey('gemini')).toBe('g-key-12345');
       expect(getApiKey('openai')).toBe('');
     });
   });
@@ -73,23 +79,23 @@ describe('secure.js', () => {
     });
 
     it('returns true after setApiKey', () => {
-      setApiKey('sk-has');
+      setApiKey('sk-has-1234');
       expect(hasApiKey()).toBe(true);
     });
   });
 
   describe('hydrateKey', () => {
     it('sets settings.apiKey from sessionStorage when available', () => {
-      setApiKey('sk-hydrate');
+      setApiKey('sk-hydrate-123');
       const settings = { provider: 'gemini', apiKey: '' };
       hydrateKey(settings);
-      expect(settings.apiKey).toBe('sk-hydrate');
+      expect(settings.apiKey).toBe('sk-hydrate-123');
     });
 
     it('leaves settings.apiKey empty when nothing stored', () => {
       const settings = { provider: 'gemini', apiKey: '' };
       hydrateKey(settings);
-      expect(settings.apiKey).toBe('');
+      expect(settings.apiKey).toBeUndefined();
     });
 
     it('handles null settings gracefully', () => {
@@ -97,18 +103,37 @@ describe('secure.js', () => {
     });
 
     it('reads the correct provider namespace', () => {
-      setApiKey('o-hydrate', 'openai');
+      setApiKey('o-hydrate-123', 'openai');
       const settings = { provider: 'openai', apiKey: '' };
       hydrateKey(settings);
-      expect(settings.apiKey).toBe('o-hydrate');
+      expect(settings.apiKey).toBe('o-hydrate-123');
     });
   });
 
   describe('stripKey', () => {
-    it('clears db.settings.apiKey', () => {
+    it('returns a copy with settings.apiKey cleared', () => {
       const db = { settings: { apiKey: 'sk-secret' } };
+      expect(stripKey(db).settings.apiKey).toBe('');
+    });
+
+    it('leaves the live object untouched', () => {
+      const db = { settings: { apiKey: 'sk-secret', provider: 'gemini' } };
       stripKey(db);
-      expect(db.settings.apiKey).toBe('');
+      expect(db.settings.apiKey).toBe('sk-secret');
+    });
+
+    it('keeps the rest of the database intact', () => {
+      const db = {
+        settings: { apiKey: 'sk-secret', provider: 'openrouter' },
+        courses: [{ id: 'c1' }],
+        chat: [{ role: 'user', content: 'hi' }],
+      };
+      const out = stripKey(db);
+      expect(out.settings.provider).toBe('openrouter');
+      expect(out.courses).toBe(db.courses);
+      expect(out.chat).toBe(db.chat);
+      expect(out).not.toBe(db);
+      expect(out.settings).not.toBe(db.settings);
     });
 
     it('does not throw on null db', () => {
@@ -122,18 +147,22 @@ describe('secure.js', () => {
 
   describe('error resilience', () => {
     it('degrades gracefully when sessionStorage.setItem throws', () => {
-      mockSS.setItem.mockImplementation(() => { throw new Error('quota'); });
-      expect(() => setApiKey('sk-fail')).not.toThrow();
+      const originalSetItem = sessionStorage.setItem;
+      sessionStorage.setItem = vi.fn(() => { throw new Error('quota'); });
+      expect(() => setApiKey('sk-fail-123')).not.toThrow();
+      sessionStorage.setItem = originalSetItem;
     });
 
     it('degrades gracefully when sessionStorage.getItem throws', () => {
-      mockSS.getItem.mockImplementation(() => { throw new Error('blocked'); });
+      const originalGetItem = sessionStorage.getItem;
+      sessionStorage.getItem = vi.fn(() => { throw new Error('blocked'); });
       expect(getApiKey()).toBe('');
       expect(hasApiKey()).toBe(false);
+      sessionStorage.getItem = originalGetItem;
     });
 
     it('degrades gracefully when stored data is corrupted JSON', () => {
-      storage['journeyai.secure'] = '{{bad json';
+      sessionStorage.setItem(STORAGE_KEY, '{{bad json');
       expect(getApiKey()).toBe('');
       expect(hasApiKey()).toBe(false);
     });

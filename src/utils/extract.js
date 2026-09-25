@@ -4,6 +4,7 @@
  */
 
 import { loadPdf, loadMammoth } from "./cdn.js";
+import { KIND_LABEL } from "../config/constants.js";
 
 function kindFromName(name) {
   const lower = (name || "").toLowerCase();
@@ -218,14 +219,6 @@ async function extractText(file) {
   const text = await readAsText(file);
   return { text: text, tables: [], pages: null };
 }
-
-const KIND_LABEL = {
-  syllabus: "Syllabus",
-  notes: "Lecture Notes",
-  textbook: "Textbook",
-  brief: "Brief / Summary",
-  other: "Other",
-};
 
 /* istanbul ignore next */
 if (typeof window !== "undefined") {

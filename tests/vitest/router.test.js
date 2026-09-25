@@ -88,17 +88,33 @@ describe("Router.navGroups structure", () => {
     expect(Router.navGroups[0].items[0].id).toBe("dashboard");
   });
 
-  it("has roadmap, library, courses, and chat in nav", () => {
+  it("orders navigation items based on information hierarchy", () => {
+    const ids = Router.navGroups[0].items.map((i) => i.id);
+    expect(ids).toEqual([
+      "dashboard",
+      "roadmap",
+      "planner",
+      "calendar",
+      "tasks",
+      "library",
+    ]);
+  });
+
+  it("has roadmap and library in nav", () => {
     const ids = Router.navGroups[0].items.map((i) => i.id);
     expect(ids).toContain("roadmap");
     expect(ids).toContain("library");
-    expect(ids).toContain("courses");
-    expect(ids).toContain("assistant");
+    expect(ids).not.toContain("assistant");
+    expect(ids).not.toContain("courses");
+    expect(ids).not.toContain("import");
+    expect(ids).not.toContain("settings");
   });
 
-  it("no settings in navGroups", () => {
+  it("no settings, import, or assistant in navGroups", () => {
     const allIds = Router.navGroups.flatMap((g) => g.items.map((i) => i.id));
+    expect(allIds).not.toContain("import");
     expect(allIds).not.toContain("settings");
+    expect(allIds).not.toContain("assistant");
   });
 });
 
@@ -111,7 +127,6 @@ describe("Router navigation", () => {
     expect(typeof Router.mark).toBe("function");
     expect(typeof Router.registerView).toBe("function");
     expect(typeof Router.renderNav).toBe("function");
-    expect(typeof Router.syncChrome).toBe("function");
     expect(typeof Router.render).toBe("function");
     expect(typeof Router.scheduleRender).toBe("function");
     expect(typeof Router.navigate).toBe("function");

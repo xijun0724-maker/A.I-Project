@@ -1,0 +1,116 @@
+/* Layout component */ #app{
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+}/* App loader - hidden once JS loads */ #app-loader{
+  transition: opacity 200ms ease;
+}#app.loaded #app-loader{
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+}#app *{
+  position: relative;
+  z-index: 1;
+}.main{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  overflow-x: hidden;
+  min-width: 0;
+}[data-theme="dark"] .main{
+  background: radial-gradient(
+    ellipse at 50% 40%,
+    #1a1f35 0%,
+    #0c1020 35%,
+    #0a0f1c 70%
+  );
+}#viewRoot{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  overflow-x: hidden;
+  position: relative;
+  min-width: 0;
+}/* Full layout across all views (Dashboard, Tasks, Planner, Roadmap, Library, Courses) */ .view-padded{
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 24px 32px;
+  overflow-y: auto;
+  overflow-x: hidden; /* Eliminate horizontal scrollbar */
+  flex: 1;
+  box-sizing: border-box;
+}@media (max-width: 768px){.view-padded{
+    padding: 16px 16px;
+  }
+}.view-padded.wide, .view-padded.narrow{
+  max-width: 100%;
+  margin: 0;
+}/* ── Page header ─────────────────────────────────────────────────── */ .page-head{
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-md);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-lg);
+}.page-head h1{
+  margin: 0;
+  font-size: 22px;
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  line-height: var(--lh-tight);
+  font-weight: 700;
+}.page-head .lead{
+  color: var(--ink-3);
+  font-size: var(--type-fine);
+  margin: 4px 0 0;
+  max-width: var(--measure);
+  font-weight: 400;
+  line-height: var(--lh-body);
+}.page-head .spacer{ flex: 1 1 auto; }/* ── Focused-course scope chip ───────────────────────────────────── */ .scope-chip-bar{
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: var(--sp-md);
+}/* ── Spacing utilities (used widely in view markup) ─────────────── */ .mt{ margin-top: var(--sp-md); }.mb{ margin-bottom: var(--sp-md); }.mt-s{ margin-top: var(--sp-sm); }.mb-s{ margin-bottom: var(--sp-sm); }.mt-xs{ margin-top: var(--sp-xs); }
+.mt-sm{ margin-top: var(--sp-sm); }.mb-sm{ margin-bottom: var(--sp-sm); }
+
+/* ── Generic layout helpers ──────────────────────────────────────── */
+.grid {
+  display: grid;
+}
+.grid.g-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-md);
+}
+@media (max-width: 768px) {
+  .grid.g-2 {
+    grid-template-columns: 1fr;
+  }
+}/* ── Sleek modern scrollbars (prevents default Windows scrollbar artifacts) ── */ *{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+}::-webkit-scrollbar{
+  width: 6px;
+  height: 0px; /* Hide horizontal scrollbar */
+}::-webkit-scrollbar-track{
+  background: transparent;
+}::-webkit-scrollbar-thumb{
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+}::-webkit-scrollbar-thumb:hover{
+  background: rgba(148, 163, 184, 0.35);
+}::-webkit-scrollbar-corner{
+  background: transparent;
+  display: none;
+}

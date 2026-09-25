@@ -1,0 +1,75 @@
+/* ================================================================ JOURNEY A.I — Settings View Styles Linear-style compact layout: grouped setting cards, key input, danger zone ================================================================ */ /* Base `.grid.g-2-1` columns live in components/grid.css; this file only
+   adds settings-specific spacing and an earlier (960px) collapse. */ .grid.g-2-1{
+  gap: var(--sp-md);
+  align-items: start;
+}@media (max-width: 960px){.grid.g-2-1{
+    grid-template-columns: 1fr;
+  }
+}.grid.gap-md{ gap: var(--sp-sm); }/* ── Compact cards inside settings ──────────────────────────────── */ .grid.g-2-1 .card{
+  padding: 14px 18px;
+  border-radius: var(--rounded-md);
+}.grid.g-2-1 .card-head{
+  margin: -2px 0 10px;
+  padding-bottom: 8px;
+}.grid.g-2-1 .card-head h2{
+  font-size: 14px;
+}.grid.g-2-1 .card-head h3{
+  font-size: 13px;
+}.grid.g-2-1 label.fld{
+  margin-bottom: 8px;
+}.grid.g-2-1 label.fld span{
+  font-size: 12px;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xs);
+}.grid.g-2-1 input, .grid.g-2-1 select{
+  padding: 6px 10px;
+  font-size: 12.5px;
+  height: 32px;
+  border-radius: var(--rounded-sm);
+}.grid.g-2-1 textarea{
+  padding: 8px 10px;
+  font-size: 12.5px;
+  min-height: 60px;
+}.grid.g-2-1 .hint{
+  font-size: 11px;
+  margin: 2px 0 6px;
+  line-height: 1.35;
+  color: var(--ink-3);
+}.grid.g-2-1 .notice{
+  padding: 8px 12px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  border-radius: var(--rounded-sm);
+}.grid.g-2-1 .btn{
+  padding: 5px 12px;
+  font-size: 12px;
+  height: 30px;
+}.grid.g-2-1 .kv{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 12px;
+}.grid.g-2-1 .kv .k{
+  color: var(--ink-2);
+}/* ── Status badge (connected / offline) ─────────────────────────── */ #aiTestMsg{
+  font-size: var(--type-fine);
+  color: var(--ink-3);
+  transition: color var(--duration-fast) var(--ease-out-quart);
+}
+
+/* ── Inline checkbox label row ──────────────────────────────────── */
+label.row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-xs);
+  cursor: pointer;
+}
+label.row input[type="checkbox"] {
+  width: auto;
+  height: auto;
+  flex: 0 0 auto;
+}

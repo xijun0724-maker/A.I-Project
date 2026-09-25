@@ -13,27 +13,173 @@ import { Pipeline } from "../../domain/pipeline.js";
 import { minutesToHM } from "../../utils/helpers.js";
 
 export function generatePlan() {
-  const meta = Planner.generate({ courseId: UIState.courseId });
-  Store.saveNow();
-  Router.scheduleRender();
-  if (!meta.totalMinutes && !meta.unscheduled.length) {
+  const preview = Planner.generateInteractive({ courseId: UIState.courseId });
+  if (!preview.planItems.length) {
     toast(
       "No open tasks are available to schedule. Add a syllabus or task first.",
       "info",
     );
-  } else if (meta.unscheduled.length) {
+    return;
+  }
+  UIState.set("plannerPreview", preview);
+  Router.scheduleRender();
+}
+
+export function applyPlanSettings() {
+  const s = Store.db.settings;
+  const weekdayEl = document.querySelector("#planWeekday");
+  const weekendEl = document.querySelector("#planWeekend");
+  const weeksEl = document.querySelector("#planWeeks");
+
+  if (weekdayEl) {
+    const v = parseFloat(weekdayEl.value);
+    if (!isNaN(v) && v >= 0) s.studyWeekday = v;
+  }
+  if (weekendEl) {
+    const v = parseFloat(weekendEl.value);
+    if (!isNaN(v) && v >= 0) s.studyWeekend = v;
+  }
+  if (weeksEl) {
+    const v = parseInt(weeksEl.value, 10);
+    if (!isNaN(v) && v > 0) s.plannerWeeks = v;
+  }
+
+  Store.saveNow();
+  generatePlan();
+  toast("Study hours updated and plan regenerated.", "ok");
+}
+
+export function cancelPlanPreview() {
+  UIState.set("plannerPreview", null);
+  Router.scheduleRender();
+}
+
+export function commitPlanPreview() {
+  const preview = UIState.plannerPreview;
+  if (!preview) return;
+
+  /* Same persist path as Planner.generate, so an accepted preview and an
+     auto-generated plan cannot write different shapes. */
+  Planner.commit(preview);
+
+  UIState.set("plannerPreview", null);
+  /* A saved schedule supersedes any offer still on screen: leaving an
+     "Accept plan" button next to a plan that is already saved would be a
+     dead control. */
+  UIState.set("planProposal", null);
+  UIState.set("showCompletedPlan", false);
+  UIState.set("showReviewPlan", false);
+  Router.scheduleRender();
+  
+  if (!preview.meta.totalMinutes && !preview.meta.unscheduled.length) {
+    toast(
+      "No open tasks are available to schedule. Add a syllabus or task first.",
+      "info",
+    );
+  } else if (preview.meta.unscheduled.length) {
     toast(
       "Study plan generated with " +
-        meta.unscheduled.length +
+        preview.meta.unscheduled.length +
         " item(s) left unscheduled.",
       "warn",
     );
   } else {
     toast(
-      "Study plan generated: " + minutesToHM(meta.totalMinutes) + " scheduled.",
+      "Study plan generated: " + minutesToHM(preview.meta.totalMinutes) + " scheduled.",
       "ok",
     );
   }
+}
+
+/* ── AI plan proposals ───────────────────────────────────────────────
+   The assistant proposes, the student decides. Accept routes through
+   commitPlanPreview so an accepted proposal and an accepted manual preview
+   take the exact same persist path. */
+
+/** @returns {object|null} The live proposal, if there is one */
+export function currentPlanProposal() {
+  const proposal = UIState.planProposal;
+  return proposal && proposal.draft ? proposal : null;
+}
+
+function clearPlanProposal() {
+  UIState.set("planProposal", null);
+}
+
+export function acceptPlanProposal() {
+  const proposal = currentPlanProposal();
+  if (!proposal) {
+    toast("That proposal is no longer available. Ask for a new plan.", "info");
+    return;
+  }
+  UIState.set("plannerPreview", proposal.draft);
+  clearPlanProposal();
+  commitPlanPreview();
+}
+
+/**
+ * Hand the draft to the planner's existing preview, where the student can
+ * change study hours, inspect every block and confirm - or cancel.
+ *
+ * The offer stays live, so cancelling the preview returns the student to a
+ * card they can still accept, edit or reject instead of a dead end. Any
+ * commit clears it (see commitPlanPreview).
+ */
+export function editPlanProposal() {
+  const proposal = currentPlanProposal();
+  if (!proposal) {
+    toast("That proposal is no longer available. Ask for a new plan.", "info");
+    return;
+  }
+  UIState.set("plannerPreview", proposal.draft);
+  Router.navigate("planner");
+}
+
+export function rejectPlanProposal() {
+  const proposal = currentPlanProposal();
+  if (!proposal) {
+    toast("That proposal is no longer available.", "info");
+    return;
+  }
+  clearPlanProposal();
+  Router.scheduleRender();
+  toast("Proposal discarded. Your current plan is untouched.", "info");
+}
+
+/**
+ * Drop one task from the proposal and re-schedule without it.
+ *
+ * @param {string} eventId - Task to exclude (or re-include when already out)
+ */
+export function toggleProposalExclusion(eventId) {
+  const proposal = currentPlanProposal();
+  if (!eventId || !proposal) {
+    toast("That proposal is no longer available.", "info");
+    return;
+  }
+  const current = proposal.exclude || [];
+  const next =
+    current.indexOf(eventId) === -1
+      ? current.concat(eventId)
+      : current.filter(function (id) {
+          return id !== eventId;
+        });
+
+  const draft = Planner.generateInteractive({
+    weeks: Store.db.settings.plannerWeeks,
+    /* Same scope the offer was drafted in, even if the student has since
+       changed the course filter. */
+    courseId: (proposal.draft.meta || {}).courseId,
+    exclude: next,
+  });
+  UIState.set(
+    "planProposal",
+    Object.assign({}, proposal, { draft: draft, exclude: next }),
+  );
+  /* Keep an open planner preview in step with the edit rather than leaving a
+     stale copy of the schedule on screen. */
+  if (UIState.plannerPreview) UIState.set("plannerPreview", draft);
+  Router.scheduleRender();
 }
 
 export function clearPlan() {
@@ -45,6 +191,8 @@ export function clearPlan() {
     if (!yes) return;
     Store.db.plan = [];
     Store.db.planMeta = null;
+    UIState.set("showCompletedPlan", false);
+    UIState.set("showReviewPlan", false);
     Store.saveNow();
     Router.scheduleRender();
   });
@@ -53,6 +201,32 @@ export function clearPlan() {
 export function togglePlanItem(id) {
   if (!Planner.toggle(id)) return;
   Router.scheduleRender();
+}
+
+export function togglePlanCompletedFilter() {
+  const next = !UIState.showCompletedPlan;
+  UIState.set("showCompletedPlan", next);
+  if (next) {
+    UIState.set("showReviewPlan", false);
+  }
+  Router.scheduleRender();
+}
+
+export function togglePlanReviewsFilter() {
+  const next = !UIState.showReviewPlan;
+  UIState.set("showReviewPlan", next);
+  if (next) {
+    UIState.set("showCompletedPlan", false);
+  }
+  Router.scheduleRender();
+}
+
+export function showPlanActiveFilter() {
+  if (UIState.showCompletedPlan || UIState.showReviewPlan) {
+    UIState.set("showCompletedPlan", false);
+    UIState.set("showReviewPlan", false);
+    Router.scheduleRender();
+  }
 }
 
 export function resetData() {

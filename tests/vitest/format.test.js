@@ -9,6 +9,7 @@ import {
   ring,
   empty,
   priBadge,
+  statusBadge,
   eventBadge,
   dueLabel,
   statBox,
@@ -147,5 +148,38 @@ describe("courseChip()", () => {
     Store.db.courses = [];
     const html = courseChip("nonexistent");
     expect(html).toBe("");
+  });
+});
+
+describe("statusBadge()", () => {
+  it("returns Not started badge for todo status", () => {
+    const html = statusBadge({ status: "todo" });
+    expect(html).toContain("status-todo");
+    expect(html).toContain("Not started");
+  });
+
+  it("returns In progress badge for doing status", () => {
+    const html = statusBadge({ status: "doing" });
+    expect(html).toContain("status-doing");
+    expect(html).toContain("In progress");
+  });
+
+  it("returns In progress with percentage when subtasks exist", () => {
+    const html = statusBadge({
+      status: "doing",
+      subtasks: [{ done: true }, { done: false }],
+    });
+    expect(html).toContain("status-doing");
+    expect(html).toContain("In progress · 50%");
+  });
+
+  it("returns Completed badge for done status", () => {
+    const html = statusBadge({ status: "done" });
+    expect(html).toContain("status-done");
+    expect(html).toContain("Completed");
+  });
+
+  it("returns empty string for null", () => {
+    expect(statusBadge(null)).toBe("");
   });
 });

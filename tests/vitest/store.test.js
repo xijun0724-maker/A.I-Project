@@ -85,6 +85,29 @@ describe("Store.resetAll", () => {
   });
 });
 
+describe("Store shape guard (test/dev seal)", () => {
+  it("rejects a new top-level key while allowing schema reassignment", () => {
+    Store.resetAll();
+    expect(Object.isSealed(Store.db)).toBe(true);
+    Store.db.courses = [{ id: "ok" }];
+    expect(Store.db.courses).toHaveLength(1);
+    expect(() => {
+      Store.db.typoKey = [];
+    }).toThrow();
+    expect("typoKey" in Store.db).toBe(false);
+  });
+});
+
+describe("Store.rev()", () => {
+  it("starts at 0 and advances on each persist", () => {
+    Store.resetAll();
+    const before = Store.rev();
+    expect(typeof before).toBe("number");
+    expect(Store.saveNow()).toBe(true);
+    expect(Store.rev()).toBeGreaterThan(before);
+  });
+});
+
 describe("Store.deduplicateData", () => {
   it("removes repeated imported lessons, events, and readings", () => {
     Store.db.lessons = [

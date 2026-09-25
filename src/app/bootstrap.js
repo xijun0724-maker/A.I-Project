@@ -1,6 +1,7 @@
 /**
  * Application bootstrap layer.
  * Thin orchestrator that imports focused modules and runs the startup sequence.
+ * Wraps everything in error handling to prevent white-screen failures.
  */
 
 import { Store } from "../core/store.js";
@@ -16,25 +17,73 @@ import { initChrome } from "./chrome.js";
 import { initFocusTrap } from "./focus-trap.js";
 import { initLifecycle } from "./lifecycle.js";
 
-function boot() {
-  Store.load();
-  hydrateKey(Store.db.settings);
+async function boot() {
+  try {
+    // Sync localStorage first so a blank/corrupt mirror never blocks paint;
+    // then adopt the IndexedDB snapshot if it is newer, before any view reads.
+    Store.load();
+    await Store.hydrateFromIDB();
+    hydrateKey(Store.db.settings);
 
-  registerViews(Router);
+    registerViews(Router);
 
-  const needsIndex =
-    !(Store.db.chunks || []).length &&
-    Store.db.documents.some((d) => (d.text || "").length > 200);
-  if (needsIndex) RAG.reindexAll();
-  Store.saveNow();
+    const needsIndex =
+      !(Store.db.chunks || []).length &&
+      Store.db.documents.some((d) => (d.text || "").length > 200);
+    if (needsIndex && !Store.isQuarantined()) RAG.reindexAll();
+    if (!Store.isQuarantined()) Store.saveNow();
 
-  initScrollReveal();
-  initActionDelegation();
-  initChrome();
-  initFocusTrap();
-  initLifecycle();
+    initScrollReveal();
+    initActionDelegation();
+    initChrome();
+    initFocusTrap();
+    initLifecycle();
 
-  Router.init();
+    Router.init();
+
+    // Hide loader once app is ready
+    const app = document.getElementById("app");
+    if (app) {
+      app.classList.add("loaded");
+    }
+  } catch (e) {
+    // Prevent white screen on bootstrap failure
+    console.error("Journey A.I: bootstrap failed:", e);
+    const root = document.getElementById("viewRoot");
+    if (root) {
+      const errText =
+        (e && e.message ? String(e.message) : "Unknown error").replace(
+          /[<>&"']/g,
+          "",
+        ) || "Unknown error";
+      root.innerHTML = `
+        <div class="card" style="max-width:480px;margin:40px auto;text-align:center;">
+          <h2>Something went wrong</h2>
+          <p class="small mono" style="margin:12px 0;">${errText}</p>
+          <p class="small muted" style="margin-bottom:16px;">
+            The app could not start. Try reloading the page.
+          </p>
+          <button class="btn primary" id="bootReloadBtn">Reload page</button>
+          <button class="btn" id="bootResetBtn" style="margin-left:8px;">
+            Reset data and reload
+          </button>
+        </div>
+      `;
+      const reloadBtn = document.getElementById("bootReloadBtn");
+      const resetBtn = document.getElementById("bootResetBtn");
+      if (reloadBtn)
+        reloadBtn.addEventListener("click", function () {
+          location.reload();
+        });
+      if (resetBtn)
+        resetBtn.addEventListener("click", function () {
+          try {
+            localStorage.clear();
+          } catch (_e) {}
+          location.reload();
+        });
+    }
+  }
 }
 
 export { boot };

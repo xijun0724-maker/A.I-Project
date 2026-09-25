@@ -14,7 +14,7 @@ Journey A.I helps students manage coursework, deadlines, and study schedules wit
 - **Syllabus Import** — Upload PDF, DOCX, or text syllabi. Journey parses deadlines, lessons, readings, and assessment weights automatically.
 - **Task Management** — Track assignments, exams, projects, and quizzes with automatic effort estimation and priority scoring.
 - **Study Planner** — Generates a weekly study schedule based on your available hours, deadlines, and priorities.
-- **AI Study Tutor** — Ask questions about your courses, get summaries, and receive personalised study guidance (supports OpenAI, Groq, Ollama, and custom OpenAI-compatible endpoints).
+- **AI Study Tutor** — Ask questions about your courses, get summaries, and receive personalised study guidance (optionally connected to Google Gemini or OpenRouter free models).
 - **Library & RAG** — Upload lecture notes, textbooks, and references. Built-in BM25 retrieval surfaces relevant passages for the AI tutor — no API key required.
 - **Dashboard** — Visualise workload by week, track completion rates, view grades, and monitor study trends.
 - **Calendar Export** — Export deadlines to Google Calendar, Outlook, or Apple Calendar as `.ics` files.
@@ -59,7 +59,7 @@ A demo dataset is seeded automatically on first visit.
 ### Using the AI Tutor
 
 1. Navigate to **AI tutor** in the sidebar.
-2. Connect a provider in **Settings** (OpenAI, Groq, Ollama, or a custom endpoint).
+2. Optionally connect Google Gemini or OpenRouter in **Settings** — Journey works without a provider.
 3. Ask questions about your uploaded documents and courses.
 
 ### Building a Study Plan
@@ -73,10 +73,10 @@ A demo dataset is seeded automatically on first visit.
 Journey A.I is a single-page web application with:
 
 - **Zero runtime dependencies** — runs on vanilla JavaScript and browser APIs.
-- **UMD libraries** loaded via CDN for PDF parsing (`pdf.js`), DOCX extraction (`mammoth`), and charts (`Chart.js`).
+- **UMD libraries** loaded via CDN for PDF parsing (`pdf.js`) and DOCX extraction (`mammoth`).
 - **localStorage** for all persistence — no backend required.
 - **BM25 retrieval** for document search — runs entirely in the browser.
-- **Provider-agnostic AI** — supports any OpenAI-compatible API.
+- **Two AI providers** — Google Gemini and OpenRouter free models, called directly from the browser with no SDK and no proxy.
 - **Service Worker** caches CDN libraries and Google Fonts for faster repeat loads.
 
 ### Security
@@ -90,7 +90,6 @@ Journey A.I is a single-page web application with:
 ```
 journey-ai/
 ├── index.html              # Entry HTML (loads the ES module bundle)
-├── style.css               # All styles (paper/ink aesthetic)
 ├── sw.js                   # Service Worker (caches CDN libs + fonts)
 ├── vite.config.js          # Vite dev server + test config
 ├── src/                    # Application source
@@ -101,7 +100,7 @@ journey-ai/
 │   │   └── ...
 │   ├── utils/              # Helpers, dates, DOM, markdown
 │   ├── domain/             # Business logic — tasks, NLP, RAG, planner, coach, dashboard, pipeline
-│   ├── ai/                 # LLM provider layer (OpenAI-compatible, provider-agnostic)
+│   ├── ai/                 # LLM provider layer (Gemini + OpenRouter, no SDK)
 │   └── views/              # Screen renderers
 │       ├── modals/         # Entity modals (course, event, lesson, doc, reading, help)
 │       └── ...
@@ -139,61 +138,87 @@ npm run test:watch    # Run tests in watch mode
 
 Test coverage spans:
 
-| Test suite            | Tests   |
-| --------------------- | ------- |
-| Action dispatch       | 16      |
-| AI client             | 22      |
-| Coach recommendations | 15      |
-| Dashboard & KPIs      | 16      |
-| Date utilities        | 37      |
-| Helper utilities      | 34      |
-| Markdown rendering    | 15      |
-| NLP / text extraction | 33      |
-| Planner scheduling    | 13      |
-| RAG retrieval         | 23      |
-| Router & navigation   | 19      |
-| Secure storage        | 19      |
-| Settings              | 6       |
-| Store                 | 16      |
-| Task extensions       | 17      |
-| Task progress         | 6       |
-| Tasks                 | 15      |
-| **Total**             | **322** |
+| Test suite                 | Tests |
+| --------------------------- | ----- |
+| Academic calendar          | 6     |
+| Action dispatch            | 54    |
+| Click delegation           | 11    |
+| Study plan agent           | 34    |
+| AI contract                | 37    |
+| Assistant stop control     | 9     |
+| Assistant view             | 14    |
+| App chrome                 | 3     |
+| AI client                  | 21    |
+| Coach                      | 15    |
+| Courses view               | 8     |
+| Dashboard                  | 16    |
+| Date utilities             | 37    |
+| DOM utilities              | 12    |
+| Feedback                   | 21    |
+| Formatting                 | 20    |
+| Helper utilities           | 34    |
+| SPA shell                  | 4     |
+| Markdown rendering         | 15    |
+| Moodle dashboard & calendar | 5     |
+| NLP / text extraction      | 33    |
+| Planner scheduling         | 21    |
+| RAG retrieval              | 37    |
+| Hybrid RAG embeddings      | 15    |
+| Retrieval practice         | 12    |
+| Recent chats               | 15    |
+| Router & navigation        | 18    |
+| UIState scope              | 18    |
+| Secure storage             | 21    |
+| Settings & schema          | 6     |
+| NLP standards registry     | 15    |
+| Store & persistence        | 16    |
+| Style tokens & contrast    | 32    |
+| Tasks                      | 15    |
+| Task extensions            | 17    |
+| Task progress              | 6     |
+| UI namespace               | 8     |
+| Removed workload views     | 3     |
+| **Total**                  | **684** |
+
+Suite names map one-to-one to files in `tests/vitest/` — "Planner scheduling" is
+`tests/vitest/planner.test.js`, and so on. The counts are a snapshot, not a gate: the
+enforced numbers are the coverage thresholds in `vite.config.js`. Re-read them from
+`npm test` whenever suites are added.
 
 All tests run without a browser, API keys, or network access — they exercise pure functions and in-memory stores.
 
 ## AI Provider Setup
 
-Journey A.I works without any AI provider — the syllabus analyser, deadline extraction, task decomposition, retrieval, and planner are all built in. Connecting a provider adds conversational explanations, smarter parsing, and a written study plan.
+Journey A.I works without any AI provider — the syllabus analyser, deadline extraction, task decomposition, retrieval, and planner are all built in. Connecting a provider adds conversational explanations, tutoring modes, and a written study plan. Syllabi are always parsed on-device.
 
-See [`.env.example`](.env.example) for a guide to obtaining API keys for each supported provider.
+Keys are entered in the in-app **Settings** panel and live only in `sessionStorage`. A `.env`
+file is never read — the app is client-only — so [`.env.example`](.env.example) is documentation
+only, not a setup step.
 
 **Supported providers:**
 
-| Provider        | Key Required | Default Model             |
-| --------------- | ------------ | ------------------------- |
-| OpenAI          | Yes          | `gpt-4o-mini`             |
-| OpenRouter      | Yes          | `openai/gpt-4o-mini`      |
-| Groq            | Yes          | `llama-3.3-70b-versatile` |
-| Google Gemini   | Yes          | `gemini-2.5-flash`        |
-| Ollama (local)  | No           | `llama3.1`                |
-| Custom endpoint | Depends      | Configurable              |
+| Provider                 | Key Required | Default Model      |
+| ------------------------ | ------------ | ------------------ |
+| Google Gemini            | Yes          | `gemini-2.5-flash` |
+| OpenRouter (free models) | Yes          | `openrouter/free`  |
 
-For local Ollama, start it with:
+Gemini keys come from [Google AI Studio](https://aistudio.google.com/apikey) and OpenRouter keys
+from [OpenRouter](https://openrouter.ai/keys). OpenRouter defaults to its free auto-router and
+offers a fixed list of free models (DeepSeek, Gemma, Qwen, Nemotron) in the model dropdown.
 
-```bash
-OLLAMA_ORIGINS=* ollama serve
-```
+Those two hosts are the only endpoints the app may reach: `index.html` sets a CSP `connect-src`
+allowlisting exactly `generativelanguage.googleapis.com` and `openrouter.ai`. Adding a provider
+means updating both `src/ai/client.js` and that policy.
 
 ## Service Worker
 
-The service worker (`sw.js`) caches CDN libraries (pdf.js, mammoth, Chart.js) and Google Fonts using a cache-first strategy. This provides:
+The service worker (`sw.js`) caches CDN libraries (pdf.js, mammoth) and Google Fonts using a cache-first strategy. This provides:
 
 - Faster repeat page loads
 - Offline access to cached assets
-- Automatic cache invalidation on version bump (`journeyai-v1`)
+- Automatic cache invalidation when `CACHE_NAME` in `sw.js` is bumped
 
-The service worker is registered automatically in `bootstrap.js` when the page is served over HTTPS or localhost.
+The service worker is registered by the inline script in `index.html` when the page is served over HTTPS or localhost. It uses a **relative** path (`sw.js`) so its scope resolves correctly when the site is served from a GitHub Pages project subpath rather than a domain root.
 
 ## Browser Support
 

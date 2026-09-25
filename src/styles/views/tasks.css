@@ -1,0 +1,324 @@
+/* ================================================================ JOURNEY A.I — To-Do List (Tasks) View Styles Minimalist ruled stationery notepad checklist with square checkboxes, quick-add controls, clear priority & deadline hierarchy, zero empty space. ================================================================ */ /* ── Balanced 3-Card KPI Pulse (Zero Empty Space) ────────────────── */ .library-stats-grid.tasks-kpi-grid{
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}@media (max-width: 768px){.library-stats-grid.tasks-kpi-grid{
+    grid-template-columns: 1fr;
+  }
+}/* ── Layout Grid (Main Notepad Focus Sidebar) ─────────────────── */ .tasks-layout-grid{
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
+  gap: 16px;
+  align-items: start;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: var(--sp-lg);
+}@media (max-width: 960px){.tasks-layout-grid{
+    grid-template-columns: 1fr;
+  }
+}.todo-main-col{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}.todo-side-col{
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}/* ── Head Action Controls ───────────────────────────────────────── */ .todo-head-actions{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}.todo-sort-select{
+  width: auto;
+  max-width: 135px;
+  height: 28px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--rounded-pill);
+  background-color: var(--paper-2);
+  border: 1px solid var(--rule-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  outline: none;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  transition: border-color var(--duration-fast), color var(--duration-fast);
+}.todo-sort-select:hover{
+  border-color: var(--rule-accent);
+  color: var(--ink);
+}.todo-sort-select:focus{
+  border-color: var(--pen, #0f6cbf);
+  box-shadow: 0 0 0 2px rgba(15, 108, 191, 0.2);
+}/* ── The To-Do Notepad Card (Stationery Aesthetic) ───────────────── */ .todo-notepad-card{
+  padding: 18px 20px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: var(--rounded-lg);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  min-height: 480px;
+}/* Notepad Top Header with Sparkles */ .notepad-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--rule-2);
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}.notepad-title-cluster{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}.notepad-sparkle{
+  color: var(--pen, #0f6cbf);
+  font-size: 14px;
+  user-select: none;
+}[data-theme="dark"] .notepad-sparkle{
+  color: #60a5fa;
+}.notepad-title{
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--ink);
+  font-family: inherit;
+}.notepad-header-actions{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}.notepad-header-actions .btn{
+  white-space: nowrap;
+  flex-shrink: 0;
+}.notepad-count-pill{
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background-color: var(--paper-2);
+  border: 1px solid var(--rule-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}/* ── Filter Tabs ────────────────────────────────────────────────── */ .tasks-tabs-wrap{
+  margin-bottom: 14px;
+}.todo-tabs{
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-bottom: none;
+}.todo-tabs button{
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--rounded-sm);
+  background: transparent;
+  color: var(--ink-2);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}.todo-tabs button:hover{
+  background: var(--paper-2);
+  color: var(--ink);
+}.todo-tabs button.active{
+  background: var(--pen-soft, rgba(15, 108, 191, 0.1));
+  color: var(--pen, #0f6cbf);
+  border-color: rgba(15, 108, 191, 0.25);
+  font-weight: 600;
+}[data-theme="dark"] .todo-tabs button.active{
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.3);
+}/* ── Ruled Notepad Checklist Items ──────────────────────────────── */ .todo-checklist{
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--rule-2);
+}.todo-item-row{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--rule-2);
+  background: var(--sheet);
+  transition: background-color var(--duration-fast);
+}.todo-item-row:hover{
+  background-color: var(--paper-2, #f8fafc);
+}.todo-item-row.is-done{
+  opacity: 0.65;
+}.todo-item-row.is-overdue{
+  border-left: 3px solid var(--error, #ef4444);
+  padding-left: 7px;
+}/* ── Square Checklist Checkbox (Just like the notebook illustration) ─ */ button.chk-square{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1.8px solid var(--rule-accent, #94a3b8);
+  background: transparent;
+  color: transparent;
+  cursor: pointer;
+  flex: 0 0 20px;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 0;
+  line-height: 1;
+  transition: all var(--duration-fast);
+}button.chk-square:hover{
+  border-color: var(--pen, #0f6cbf);
+  background: var(--pen-soft, rgba(15, 108, 191, 0.08));
+}button.chk-square.on{
+  background: var(--ok, #10b981);
+  border-color: var(--ok, #10b981);
+  color: #fff;
+}/* ── Content & Typography ───────────────────────────────────────── */ .todo-item-content{
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  outline: none;
+  transition: color var(--duration-fast);
+}.todo-item-content:hover .todo-title:not(.done-text){
+  color: var(--pen, #0f6cbf);
+}[data-theme="dark"] .todo-item-content:hover .todo-title:not(.done-text){
+  color: #60a5fa;
+}.todo-item-content:focus-visible{
+  outline: 2px solid var(--pen, #0f6cbf);
+  outline-offset: 2px;
+}.todo-title-row{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}.todo-title{
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  word-break: break-word;
+  transition: color var(--duration-fast);
+}.todo-title.done-text{
+  text-decoration: line-through;
+  color: var(--ink-3);
+  font-weight: 500;
+}.todo-meta-row{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+}.todo-badge{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+}.todo-badge.status-todo{
+  background: var(--paper-2);
+  color: var(--ink-2);
+  border: 1px solid var(--rule-2);
+}.todo-badge.status-doing{
+  background: rgba(14, 165, 233, 0.12);
+  color: #0284c7;
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  font-weight: 600;
+}.todo-badge.status-done{
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}[data-theme="dark"] .todo-badge.status-todo{
+  background: rgba(255, 255, 255, 0.06);
+  color: #94a3b8;
+  border-color: rgba(255, 255, 255, 0.12);
+}[data-theme="dark"] .todo-badge.status-doing{
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border-color: rgba(56, 189, 248, 0.3);
+}[data-theme="dark"] .todo-badge.status-done{
+  background: rgba(52, 211, 153, 0.15);
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.3);
+}.todo-badge.due{
+  background: rgba(15, 108, 191, 0.08);
+  color: #0f6cbf;
+}[data-theme="dark"] .todo-badge.due{
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+}.todo-badge.today{
+  background: rgba(245, 158, 11, 0.1);
+  color: #d97706;
+}.todo-badge.overdue{
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  font-weight: 700;
+}.todo-badge.nodate{
+  background: var(--paper-2);
+  color: var(--ink-3);
+}.todo-course-chip{
+  display: inline-flex;
+  align-items: center;
+}.todo-notes-preview{
+  font-size: 11px;
+  color: var(--ink-3);
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}/* ── Row Action Buttons ─────────────────────────────────────────── */ .todo-item-actions{
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity var(--duration-fast);
+}.todo-item-row:hover .todo-item-actions{
+  opacity: 1;
+}.btn.danger-ghost{
+  background: transparent;
+  color: var(--ink-3);
+  border: 1px solid transparent;
+  font-size: 12px;
+}.btn.danger-ghost:hover{
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.2);
+}/* ── Empty Ruled Lines on Empty List ────────────────────────────── */ .todo-empty-ruled{
+  display: flex;
+  flex-direction: column;
+}.empty-ruled-line{
+  min-height: 48px;
+  border-bottom: 1px solid var(--rule-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+}/* ── Right Column: Priorities & Tools Cards ─────────────────────── */ .todo-priorities-card{
+  padding: 16px 18px;
+}.priority-breakdown-list{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}.priority-stat-row{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+}.priority-stat-row .v{
+  font-size: 14px;
+  color: var(--ink);
+}.todo-tools-card{
+  padding: 16px 18px;
+}

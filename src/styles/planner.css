@@ -1,0 +1,448 @@
+
+/* ── Top Study Schedule, Settings & Average Pace Bar ────────────── */ .planner-settings-card{
+  padding: 16px 20px;
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--rounded-md);
+  margin-bottom: 20px;
+}.planner-settings-grid{
+  display: grid;
+  grid-template-columns: 1fr 310px;
+  gap: 20px;
+  align-items: stretch;
+}@media (max-width: 960px){.planner-settings-grid{
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}.planner-settings-col-controls{
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+}.planner-settings-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--rule-2);
+}.planner-settings-title-cluster{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}.planner-settings-sparkle{
+  color: var(--pen, #0f6cbf);
+  font-size: 16px;
+  line-height: 1;
+}[data-theme="dark"] .planner-settings-sparkle{
+  color: #60a5fa;
+}.planner-settings-heading{
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+}.planner-settings-controls{
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}.planner-setting-field{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 140px;
+  min-width: 120px;
+}.planner-setting-field label{
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}.planner-select{
+  height: 36px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--rounded-sm);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  transition: border-color var(--duration-fast);
+}.planner-select:focus{
+  border-color: var(--pen, #0f6cbf);
+  box-shadow: 0 0 0 2px var(--pen-soft, rgba(15, 108, 191, 0.15));
+}.planner-setting-actions{
+  flex: 0 0 auto;
+}.planner-apply-btn{
+  height: 36px;
+  white-space: nowrap;
+}/* ── Integrated Average Pace & Capacity Column ──────────────────── */ .planner-settings-col-pace{
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}.planner-pace-panel{
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  height: 100%;
+  padding: 12px 16px;
+  border-radius: var(--rounded-md, 8px);
+  background: var(--paper-2);
+  border: 1px solid var(--rule);
+  box-sizing: border-box;
+  transition: border-color var(--duration-fast);
+}.planner-pace-panel:hover{
+  border-color: var(--pen, #0f6cbf);
+}.planner-pace-header{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}.planner-pace-label{
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--pen, #0f6cbf);
+}[data-theme="dark"] .planner-pace-label{
+  color: #60a5fa;
+}.planner-pace-tag{
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: var(--rounded-pill, 100px);
+  background: var(--pen-soft, rgba(15, 108, 191, 0.1));
+  color: var(--pen, #0f6cbf);
+  border: 1px solid rgba(15, 108, 191, 0.2);
+}[data-theme="dark"] .planner-pace-tag{
+  background: rgba(96, 165, 250, 0.15);
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.3);
+}.planner-pace-value{
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1.15;
+}.planner-pace-meta{
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}.planner-pace-meta-item{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}.pace-meta-icon{
+  font-size: 12px;
+  line-height: 1;
+}.pace-meta-icon.ok{
+  color: var(--ok, #10b981);
+}/* ── 3-Column Execution KPI Grid ────────────────────────────────── */ .library-stats-grid.planner-kpi-grid{
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}@media (max-width: 768px){.library-stats-grid.planner-kpi-grid{
+    grid-template-columns: 1fr;
+  }
+}/* ── Full-Width Day-by-Day Schedule Grid (Zero Empty Space) ─────── */ .planner-days-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
+}.planner-day-card{
+  padding: 16px;
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--rounded-md);
+  transition: border-color var(--duration-fast);
+}.planner-day-card:hover{
+  border-color: var(--rule-accent);
+}.day-head{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}.day-title-wrap{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}.day-num{
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}.day-capacity-text{
+  font-size: 11.5px;
+  font-weight: 500;
+}.planner-day-blocks{
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}/* ── Schedule Block Styling ─────────────────────────────────────── */ .sched-block{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--rounded-sm);
+  background: var(--paper-2);
+  border: 1px solid var(--rule-2);
+  transition: all var(--duration-fast);
+}.sched-block:hover{
+  border-color: var(--rule-accent);
+  background: var(--sheet);
+}.sched-block.done{
+  opacity: 0.65;
+}.sched-block.review{
+  border-left: 3px solid var(--info, #3b82f6);
+}.sched-block.urgent{
+  border-left: 3px solid var(--warn, #f59e0b);
+}.sched-block.default{
+  border-left: 3px solid var(--ok, #10b981);
+}.sched-block-content{
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  cursor: pointer;
+  outline: none;
+}.sched-block-content:hover .sched-title:not(.done-text){
+  color: var(--pen, #0f6cbf);
+}[data-theme="dark"] .sched-block-content:hover .sched-title:not(.done-text){
+  color: #60a5fa;
+}.sched-block-content:focus-visible{
+  outline: 2px solid var(--pen, #0f6cbf);
+  outline-offset: 2px;
+  border-radius: 4px;
+}.sched-label-row{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}.sched-title{
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.35;
+  transition: color var(--duration-fast);
+  word-break: break-word;
+}.sched-title.done-text{
+  text-decoration: line-through;
+  color: var(--ink-3);
+}.sched-badge{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  border-radius: var(--rounded-pill);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}.sched-badge.review{ background: var(--info-soft); color: var(--info); }.sched-badge.urgent{ background: var(--warn-soft); color: var(--warn); }.sched-badge.default{ background: var(--ok-soft); color: var(--ok); }.sched-meta-row{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11.5px;
+  color: var(--ink-3);
+}.msep{
+  color: var(--rule-accent);
+}/* AI study-plan proposal card (rendered into the chat log) */ .plan-proposal{
+  border: 1px solid var(--rule);
+  border-radius: var(--rounded-md);
+  background: var(--sheet);
+  margin-top: 12px;
+  padding: 12px;
+}.pp-head{
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 4px;
+}.pp-head strong{ font-size: 14px; color: var(--ink); }.pp-prov{ margin-bottom: 8px; }.pp-flags{
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}.pp-note{ margin-bottom: 8px; }.pp-tasks{
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 10px;
+}.pp-task{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--rule);
+  border-radius: var(--rounded-sm);
+  background: var(--bg-pill);
+  color: var(--ink);
+  cursor: pointer;
+}.pp-task:hover{ border-color: var(--ink-3); }.pp-task:focus-visible{ outline: 2px solid var(--primary); outline-offset: 1px; }.pp-task.off{ opacity: 0.55; }.pp-task.off .pp-task-title{ text-decoration: line-through; }.pp-task.unscheduled{ border-style: dashed; }.pp-tick{
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  border-radius: var(--rounded-sm);
+  border: 1px solid var(--rule);
+  color: transparent;
+}.pp-task:not(.off) .pp-tick{
+  background: var(--ok-soft);
+  border-color: var(--ok);
+  color: var(--ok);
+}.pp-task-title{ flex: 1 1 auto; font-size: 13px; }.pp-warn{ color: var(--warn); }.pp-actions{
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}/* Recall widget */ .recall-widget{
+  border: 1px solid var(--info);
+  border-radius: var(--rounded-md);
+  background: var(--info-soft);
+  margin-top: 12px;
+  overflow: hidden;
+}.recall-header{
+  padding: 8px 12px;
+  background: var(--info);
+  color: white;
+  font-weight: 600;
+  font-size: 13px;
+}.recall-card{ border-top: 1px solid var(--rule-2); }.recall-card summary{
+  padding: 10px 12px;
+  cursor: pointer;
+  font-weight: 500;
+  list-style: none;
+  background: var(--sheet);
+}.recall-card summary::-webkit-details-marker{ display: none; }.recall-hint{
+  padding: 8px 12px 0;
+  font-size: 11px;
+  color: var(--ink-3);
+}.recall-card.recalled summary{ background: var(--ok-soft); }.recall-card.missed summary{ background: var(--warn-soft); }.recall-mark{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}.recall-q{ font-size: 13px; color: var(--ink); }.recall-a{
+  padding: 0 12px 12px;
+  font-size: 12px;
+  color: var(--ink-2);
+}.recall-src{
+  font-size: 11px;
+  color: var(--ink-3);
+  margin-top: 4px;
+}/* ── Interactive KPI Cards (Completed Filter Toggle) ────────────── */ .clickable-kpi{
+  cursor: pointer;
+  user-select: none;
+  transition: transform var(--duration-fast, 0.15s) ease, border-color var(--duration-fast, 0.15s) ease, box-shadow var(--duration-fast, 0.15s) ease;
+}.clickable-kpi:hover{
+  transform: translateY(-2px);
+  border-color: var(--ok, #10b981);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.15);
+}.clickable-kpi:focus-visible{
+  outline: 2px solid var(--pen, #0f6cbf);
+  outline-offset: 2px;
+}.clickable-kpi.active-kpi.ok, .active-kpi.ok{
+  border-color: var(--ok, #10b981);
+  background: var(--ok-soft, rgba(16, 185, 129, 0.08));
+  box-shadow: 0 0 0 1px var(--ok, #10b981);
+}.clickable-kpi.active-kpi.info, .active-kpi.info{
+  border-color: var(--pen, #0f6cbf);
+  background: var(--pen-soft, rgba(15, 108, 191, 0.06));
+}.clickable-kpi.active-kpi.warn, .active-kpi.warn{
+  border-color: var(--warn, #f59e0b);
+  background: var(--warn-soft, rgba(245, 158, 11, 0.08));
+  box-shadow: 0 0 0 1px var(--warn, #f59e0b);
+}.kpi-click-tag{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: var(--rounded-pill, 9999px);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--ok-soft, rgba(16, 185, 129, 0.12));
+  color: var(--ok, #10b981);
+  vertical-align: middle;
+}.kpi-click-tag.warn{
+  background: var(--warn-soft, rgba(245, 158, 11, 0.14));
+  color: var(--warn, #b45309);
+}[data-theme="dark"] .kpi-click-tag.warn{
+  color: #fbbf24;
+}.kpi-active-pill{
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: var(--rounded-pill, 9999px);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  vertical-align: middle;
+}.kpi-active-pill.ok{
+  background: var(--ok, #10b981);
+  color: #fff;
+}.kpi-active-pill.info{
+  background: var(--pen, #0f6cbf);
+  color: #fff;
+}.kpi-active-pill.warn{
+  background: var(--warn, #f59e0b);
+  color: #fff;
+}/* ── Completed & Filter Banner ────────────────────────────────── */ .planner-filter-banner{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  border-radius: var(--rounded-md, 8px);
+  background: var(--sheet);
+  border: 1px solid var(--rule-2);
+}.filter-banner-info{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}.filter-banner-badge{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--rounded-pill, 9999px);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}.filter-banner-badge.ok{
+  background: var(--ok, #10b981);
+  color: #fff;
+}.filter-banner-badge.warn{
+  background: var(--warn, #f59e0b);
+  color: #fff;
+}.filter-banner-text{
+  font-size: 13px;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+
+

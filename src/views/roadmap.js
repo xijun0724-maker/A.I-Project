@@ -1,13 +1,8 @@
 import { UIState } from "../core/state.js";
 import { Coach } from "../domain/coach.js";
 import { Tasks } from "../domain/tasks.js";
-import {
-  esc,
-  sortBy,
-  groupBy,
-  pct,
-} from "../utils/helpers.js";
-import { fmtDate, fromIso, dateOnly, addDays } from "../utils/date.js";
+import { esc, sortBy, groupBy } from "../utils/helpers.js";
+import { fmtDate, fromIso, addDays } from "../utils/date.js";
 import {
   empty,
   bar,
@@ -20,219 +15,6 @@ import {
   docs,
 } from "./shared.js";
 import { courses, bindCoursesView } from "./courses.js";
-
-
-
-function renderWeeklyOutline(lessons, events, readings, currentWeek) {
-  if (!lessons.length) {
-    return (
-      '<div class="card">' +
-      empty(
-        "",
-        "No roadmap yet",
-        "Import a course syllabus and the weekly topics will be mapped here automatically.",
-        '<button class="btn primary mt" data-act="go-import">Import a syllabus</button>',
-      ) +
-      "</div>"
-    );
-  }
-
-  const byWeek = groupBy(lessons, function (l) {
-    const week = Number(l.week);
-    return Number.isFinite(week) ? week : 0;
-  });
-  const weeks = Object.keys(byWeek)
-    .map(Number)
-    .filter(function (week) {
-      return Number.isFinite(week) && byWeek[week] && byWeek[week].length;
-    })
-    .sort(function (a, b) {
-      return a - b;
-    });
-  let h = '<div class="dash-content-grid"><div class="dash-col-left"><div class="card">';
-
-  weeks.forEach(function (w) {
-    const group = byWeek[w];
-    if (!group || !group.length) return;
-    const first = group[0];
-    const isCurrent = w === currentWeek;
-    const weekStart = first.start
-      ? fromIso(first.start + "T00:00")
-      : Coach.weekStartDate(w);
-    const weekEnd = first.end
-      ? fromIso(first.end + "T23:59")
-      : weekStart
-        ? addDays(weekStart, 6)
-        : null;
-    const wkEvents = events.filter(function (e) {
-      if (!e.due) return false;
-      const due = fromIso(e.due);
-      return weekStart && due >= addDays(weekStart, -1) && due <= weekEnd;
-    });
-    const wkReadings = readings.filter(function (r) {
-      return r.week === w;
-    });
-    const doneCount = group.filter(function (l) {
-      return l.done;
-    }).length;
-
-    h +=
-      '<div class="rail' +
-      (isCurrent ? " on" : "") +
-      '" id="week-rail-' +
-      w +
-      '">' +
-      '<div class="rail-n">' +
-      w +
-      (isCurrent ? '<span class="now">now</span>' : "") +
-      "</div>" +
-      '<div class="rail-body"><div class="week-hdr">' +
-      '<span class="wk">Week ' +
-      w +
-      "</span>" +
-      '<span class="tiny muted">' +
-      (weekStart
-        ? fmtDate(dateOnly(weekStart), false) +
-          " to " +
-          fmtDate(dateOnly(weekEnd), false)
-        : "dates not set") +
-      "</span>" +
-      '<span class="spacer"></span><span class="tiny muted">' +
-      doneCount +
-      " of " +
-      group.length +
-      " topics</span>" +
-      "</div>";
-
-    group.forEach(function (l) {
-      h +=
-        '<div class="list-item">' +
-        '<div class="chk' +
-        (l.done ? " on" : "") +
-        '" data-act="lesson-toggle" data-id="' +
-        esc(l.id) +
-        '"' +
-        ' role="checkbox" tabindex="0" aria-checked="' +
-        (l.done ? "true" : "false") +
-        '" aria-label="Toggle whether this topic is covered">\u2713</div>' +
-        '<div class="body"><div class="t' +
-        (l.done ? " done-text" : "") +
-        '">' +
-        esc(l.topic) +
-        "</div>";
-      if (l.notes) h += '<div class="small muted">' + esc(l.notes) + "</div>";
-      if (wkReadings.length) {
-        h +=
-          '<div class="m">' +
-          wkReadings
-            .map(function (r) {
-              return '<span class="tag">' + esc(r.title) + "</span>";
-            })
-            .join(" ") +
-          "</div>";
-      }
-      h +=
-        '</div><div class="row nowrap">' +
-        courseChip(l.courseId) +
-        '<button class="btn xs ghost" data-act="lesson-edit" data-id="' +
-        esc(l.id) +
-        '">Edit</button></div></div>';
-    });
-
-    wkEvents.forEach(function (e) {
-      h +=
-        '<div class="list-item flat"><span style="width:17px"></span><div class="body">' +
-        '<div class="t small">' +
-        esc(e.title) +
-        " " +
-        eventBadge(e) +
-        "</div>" +
-        '<div class="m">' +
-        fmtDate(e.due, true) +
-        (e.weight != null
-          ? ' <i class="msep"></i> worth ' + e.weight + "%"
-          : "") +
-        "</div></div>" +
-        '<button class="btn xs" data-act="event-edit" data-id="' +
-        esc(e.id) +
-        '">Open</button></div>';
-    });
-
-    if (!group.length && !wkEvents.length)
-      h += '<p class="small muted">No content captured for this week.</p>';
-    h += "</div></div>";
-  });
-
-  h += "</div></div>";
-  h += '<div class="dash-col-right roadmap-sidebar">';
-  h +=
-    '<div class="card"><div class="card-head"><h3>Roadmap coverage</h3></div>' +
-    '<div class="kv"><span class="k">Topics mapped</span><span class="v">' +
-    lessons.length +
-    "</span></div>" +
-    '<div class="kv"><span class="k">Topics completed</span><span class="v">' +
-    lessons.filter(function (l) {
-      return l.done;
-    }).length +
-    "</span></div>" +
-    '<div class="kv"><span class="k">Weeks covered</span><span class="v">' +
-    weeks.length +
-    "</span></div>" +
-    '<div class="kv"><span class="k">Current week</span><span class="v">' +
-    currentWeek +
-    "</span></div>" +
-    bar(
-      pct(
-        lessons.filter(function (l) {
-          return l.done;
-        }).length,
-        lessons.length,
-      ),
-    ) +
-    (currentWeek
-      ? '<a href="#week-rail-' +
-        currentWeek +
-        '" class="btn sm block mt-s">Jump to Week ' +
-        currentWeek +
-        " (Now)</a>"
-      : "") +
-    "</div>";
-
-  h +=
-    '<div class="card"><div class="card-head"><h3>Week Navigator</h3><span class="tiny muted">' +
-    weeks.length +
-    ' wks</span></div><div class="week-nav-grid">' +
-    weeks
-      .map(function (w) {
-        const isDone =
-          byWeek[w] &&
-          byWeek[w].length > 0 &&
-          byWeek[w].every(function (l) {
-            return l.done;
-          });
-        return (
-          '<a href="#week-rail-' +
-          w +
-          '" class="week-nav-pill' +
-          (w === currentWeek ? " now" : "") +
-          (isDone ? " done" : "") +
-          '" title="Jump to Week ' +
-          w +
-          '">W' +
-          w +
-          "</a>"
-        );
-      })
-      .join("") +
-    "</div></div>";
-
-  h +=
-    '<div class="card"><div class="card-head"><h3>Add topic</h3></div>' +
-    '<p class="small muted">Manually add a lesson if the syllabus missed it.</p>' +
-    '<button class="btn block sm primary" data-act="lesson-new">New topic</button></div>';
-  h += "</div></div>";
-  return h;
-}
 
 function renderDeadlines(events) {
   const all = sortBy(
@@ -509,7 +291,9 @@ function renderVisualRoadmapTree(
     return (
       '<div class="roadmap-topic-pill' +
       (l.done ? " is-done" : "") +
-      '">' +
+      '" data-act="lesson-edit" data-id="' +
+      esc(l.id) +
+      '" title="Edit topic">' +
       '<span class="topic-pill-title">' +
       esc(l.topic) +
       "</span>" +
@@ -563,10 +347,30 @@ function renderVisualRoadmapTree(
   let treeStepsHtml = "";
   const midpoint = Math.floor(weeks.length / 2);
 
+  /* An assessment belongs to a week by its explicit `week`, or - for every
+     event the importer and the sample loader write, which carry only `due` -
+     by the date window that week covers. Matching on `e.week` alone matched
+     nothing for any dataset, so the roadmap drew no assessments at all while
+     its legend advertised them. */
+  const weekStartOf = (w) => {
+    const group = byWeek[w] || [];
+    const first = group[0];
+    return first && first.start
+      ? fromIso(first.start + "T00:00")
+      : Coach.weekStartDate(w);
+  };
+
   weeks.forEach((w, idx) => {
     const group = byWeek[w] || [];
     const isWeekDone = group.length > 0 && group.every((l) => l.done);
-    const weekEvents = courseEvents.filter((e) => e.week === w);
+    const wkStart = weekStartOf(w);
+    const wkEnd = wkStart ? addDays(wkStart, 6) : null;
+    const weekEvents = courseEvents.filter((e) => {
+      if (Number(e.week) === Number(w)) return true;
+      if (!e.due || !wkStart) return false;
+      const due = fromIso(e.due);
+      return !!due && due >= addDays(wkStart, -1) && due <= wkEnd;
+    });
     const weekReadings = courseReadings.filter((r) => r.week === w);
 
     let leftPills = "";
@@ -722,7 +526,6 @@ function renderVisualRoadmapTree(
 
 export {
   renderVisualRoadmapTree,
-  renderWeeklyOutline,
   renderDeadlines,
   renderReadings,
   renderTables,

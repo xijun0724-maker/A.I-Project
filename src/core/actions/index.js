@@ -29,6 +29,7 @@ import { toggleTask, toggleSubtask, toggleReading, deleteTask } from "./tasks.js
 import { exportData, exportRoadmap } from "./exports.js";
 import { saveSettings, testAI, clearApiKeyFn } from "./settings.js";
 import { importData, commitDraft, cancelDraft } from "./import.js";
+import { loadTermSyllabi } from "./term.js";
 import {
   generatePlan,
   applyPlanSettings,
@@ -86,6 +87,7 @@ const STATIC_HANDLERS = Object.freeze({
   "data-reset": resetData,
   "demo-load": loadDemo,
   "load-moodle-sample": loadMoodleSample,
+  "term-load": loadTermSyllabi,
   reindex: reindexFn,
   "ai-test": testAI,
   "ai-key-clear": clearApiKeyFn,

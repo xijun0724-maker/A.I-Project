@@ -589,16 +589,23 @@ export function bindCoursesView(root) {
     });
   });
 
-  // Handle menu item clicks: close popover
+  // Handle menu item actions directly (Star/Unstar, Remove/Restore)
   qa(".lms-menu-item", root).forEach((item) => {
-    item.addEventListener("click", () => {
+    item.addEventListener("click", (e) => {
+      e.stopPropagation();
       const popover = item.closest(".lms-kebab-popover");
       if (popover) popover.style.display = "none";
       qa(".lms-kebab-btn", root).forEach((b) => b.classList.remove("active"));
       qa(".lms-course-card", root).forEach((c) => c.classList.remove("menu-open"));
+      const action = item.getAttribute("data-act");
+      const id = item.getAttribute("data-id");
+      if (action === "toggle-star-course") {
+        toggleStarCourse(id);
+      } else if (action === "toggle-remove-view-course") {
+        toggleRemoveFromView(id);
+      }
     });
   });
-
 
   // Global click & Escape listener closes open dropdowns
   if (_docListenerCtl) _docListenerCtl.abort();

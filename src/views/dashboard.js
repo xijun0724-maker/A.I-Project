@@ -580,6 +580,7 @@ export function dashboard() {
     return UI.inScope(e) && Tasks.isOpen(e) && Tasks.isOverdue(e);
   });
 
+  // 1. Executive Page Head
   let h = pageHead(
     "Dashboard",
     "",

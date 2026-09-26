@@ -31,3 +31,21 @@ export function deleteTask(id) {
     toast("To-do deleted.", "ok");
   });
 }
+
+export function deleteTask(id) {
+  const ev = Store.db.events.find((x) => x.id === id);
+  if (!ev) return;
+  confirm('Delete "' + ev.title + '"?', {
+    title: "Delete to-do",
+    ok: "Delete",
+    danger: true,
+  }).then((yes) => {
+    if (!yes) return;
+    Store.db.events = Store.db.events.filter((x) => x.id !== id);
+    Store.db.plan = Store.db.plan.filter((p) => p.eventId !== id);
+    Store.saveNow();
+    Router.scheduleRender();
+    toast("To-do deleted.", "ok");
+  });
+}
+

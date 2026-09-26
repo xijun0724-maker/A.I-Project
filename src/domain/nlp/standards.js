@@ -67,7 +67,7 @@ export function analyseAgainstStandard(text, result, standard) {
       pastGradeScale = true;
     if (!inGradingSection || pastGradeScale) return;
     if (/\b(?:total|subtotal|highest\s+mark|passing\s+mark)\b/i.test(line)) return;
-    // Skip PNU grade-scale rows e.g. "98 - 100   1.00   Excellent"
+    // Skip PNU grade-scale rows e.g. "98 - 100   1.00, Excellent"
     if (/\b\d{2,3}\s*[-–]\s*\d{2,3}(?:\.\d+)?\s+\d+\.\d{2}\b/.test(line)) return;
     const matches = line.match(/\b(\d{1,3}(?:\.\d+)?)\s*%/g) || [];
     matches.forEach(function (value) {

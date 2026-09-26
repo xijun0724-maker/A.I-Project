@@ -356,6 +356,27 @@ function renderVisualRoadmapTree(
     );
   }
 
+=======
+function renderVisualRoadmapTree(
+  course,
+  allLessons,
+  allEvents,
+  allReadings,
+) {
+  if (!course) {
+    return (
+      '<div class="card">' +
+      empty(
+        "",
+        "No course selected",
+        "Select a course to view its curriculum roadmap.",
+        '<button type="button" class="btn primary mt" data-act="scope-clear-to-courses">View all courses</button>',
+      ) +
+      "</div>"
+    );
+  }
+
+>>>>>>> ba2b6b567d39d148d56485bdb115cfefd6234af8
   const courseLessons = (allLessons || []).filter(
     (l) => l.courseId === course.id,
   );

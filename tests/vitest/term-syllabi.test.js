@@ -270,7 +270,9 @@ describe("the loaded term feeds the rest of the app", () => {
     applyTermSyllabi();
     const preview = Planner.generateInteractive({ weeks: 12 });
     expect(preview.planItems.length).toBeGreaterThan(0);
-    expect(preview.planItems.length).toBeLessThanOrEqual(12 * 7);
+    // Multi-track planner (events + topic study + readings) can schedule
+    // multiple blocks per day; allow up to 6 per day over the 12-week horizon.
+    expect(preview.planItems.length).toBeLessThanOrEqual(12 * 7 * 6);
   });
 
   it("ranks the loaded assessments as open tasks", () => {

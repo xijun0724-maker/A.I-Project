@@ -12,8 +12,8 @@
 import { Store } from "../store.js";
 import { UIState } from "../state.js";
 import { Router } from "../router.js";
-import { toast, q } from "../../utils/dom.js";
-import { renderRecents } from "../../utils/format.js";
+import { toast } from "../../utils/dom.js";
+import { toggleSidebarChatSearch } from "../../app/chrome.js";
 import { RAG } from "../../domain/rag.js";
 import { NLP } from "../../domain/nlp.js";
 import {
@@ -61,6 +61,7 @@ const DIRECT_ACTIONS = [
   "tab",
   "course-view",
   "course-open-roadmap",
+  "roadmap-view",
   "scope-course",
   "scope-clear",
   "scope-clear-to-courses",
@@ -119,6 +120,7 @@ const STATIC_HANDLERS = Object.freeze({
   "chat-new": () => {
     Router.navigate("assistant");
   },
+  "chat-search": toggleSidebarChatSearch,
   "plan-generate": generatePlan,
   "plan-settings-apply": applyPlanSettings,
   "plan-clear": clearPlan,
@@ -202,6 +204,12 @@ function act(action, el) {
     } else {
       Router.scheduleRender();
     }
+    return;
+  }
+  if (action === "roadmap-view") {
+    const v = el?.dataset?.view || "tree";
+    UIState.set("roadmapView", v);
+    Router.scheduleRender();
     return;
   }
   if (action === "scope-course") {
@@ -363,56 +371,7 @@ const CONTEXT_HANDLERS = Object.freeze({
   },
   "chat-remove-recent": (el) => () => {
     const content = el?.dataset?.q;
-    if (!content) return;
-    Store.db.chat = Store.db.chat.filter(function (m) {
-      return !(m.role === "user" && m.content === content);
-    });
-    Store.saveNow();
-    Router.scheduleRender();
-  },
-  "chat-search": () => () => {
-    const recent = q("#sidebarRecent");
-    if (!recent) return;
-    let box = recent.querySelector(".sb-search-box");
-    if (box) {
-      box.remove();
-      recent.classList.remove("sb-search-active");
-      Router.scheduleRender();
-      return;
-    }
-    box = document.createElement("div");
-    box.className = "sb-search-box";
-    box.innerHTML =
-      '<input class="sb-search-input" type="text" placeholder="Search chats\u2026" aria-label="Search chats">';
-    recent.prepend(box);
-    recent.classList.add("sb-search-active");
-    const input = box.querySelector("input");
-    if (input) {
-      input.focus();
-      input.addEventListener("input", function () {
-        const query = input.value.trim();
-        if (!query) {
-          Router.scheduleRender();
-          return;
-        }
-        /* Filtered results are not "the current conversation", so no pill. */
-        renderRecents(q("#recentChatList"), Store.db.chat, {
-          query: query,
-          limit: 0,
-          activeFirst: false,
-          emptyLabel: "No matches",
-        });
-      });
-      input.addEventListener("keydown", function (e) {
-        if (e.key === "Escape") {
-          input.value = "";
-          input.dispatchEvent(new window.Event("input", { bubbles: true }));
-          box.remove();
-          recent.classList.remove("sb-search-active");
-          Router.scheduleRender();
-        }
-      });
-    }
+    if (content) Store.chat.removeRecent(content);
   },
 });
 

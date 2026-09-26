@@ -110,6 +110,11 @@ async function extractPdf(file, onProgress) {
     });
   }
 
+  // PNU institutional header/footer stamps appear on every page of TEDPATH
+  // syllabi. Strip them here so they never corrupt session/topic extraction.
+  const PNU_STAMP_LINE_RE =
+    /^(?:Reference\s+No\.?\s+PNU|Issue\s+No\.?\s*\d|Rev(?:ision)?\.?\s+No\.?\s*\d|Taft\s+Ave\.|Trunkline:\s*\+|(?:CMI\s+TEACHER\s+EDUCATION\s+PATHWAYS|UCM\s+OBE\s+COURSE)\s+SYLLABUS|Page\s+\d+\s*\/|\(All\s+documents\s+without|DC\s+No\.\s+CC\d)/i;
+
   function pageLines(items) {
     return positionedRows(items)
       .map(function (row) {
@@ -125,7 +130,9 @@ async function extractPdf(file, onProgress) {
         });
         return line.replace(/\s+/g, " ").trim();
       })
-      .filter(Boolean);
+      .filter(function (line) {
+        return line && !PNU_STAMP_LINE_RE.test(line);
+      });
   }
 
   function pageTable(items, pageNumber) {

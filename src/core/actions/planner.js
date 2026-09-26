@@ -26,25 +26,25 @@ export function generatePlan() {
 }
 
 export function applyPlanSettings() {
-  const s = Store.db.settings;
   const weekdayEl = document.querySelector("#planWeekday");
   const weekendEl = document.querySelector("#planWeekend");
   const weeksEl = document.querySelector("#planWeeks");
+  const patch = {};
 
   if (weekdayEl) {
     const v = parseFloat(weekdayEl.value);
-    if (!isNaN(v) && v >= 0) s.studyWeekday = v;
+    if (!isNaN(v) && v >= 0) patch.studyWeekday = v;
   }
   if (weekendEl) {
     const v = parseFloat(weekendEl.value);
-    if (!isNaN(v) && v >= 0) s.studyWeekend = v;
+    if (!isNaN(v) && v >= 0) patch.studyWeekend = v;
   }
   if (weeksEl) {
     const v = parseInt(weeksEl.value, 10);
-    if (!isNaN(v) && v > 0) s.plannerWeeks = v;
+    if (!isNaN(v) && v > 0) patch.plannerWeeks = v;
   }
 
-  Store.saveNow();
+  Store.settings.update(patch);
   generatePlan();
   toast("Study hours updated and plan regenerated.", "ok");
 }
@@ -189,18 +189,14 @@ export function clearPlan() {
     danger: true,
   }).then((yes) => {
     if (!yes) return;
-    Store.db.plan = [];
-    Store.db.planMeta = null;
+    Store.plan.clear();
     UIState.set("showCompletedPlan", false);
     UIState.set("showReviewPlan", false);
-    Store.saveNow();
-    Router.scheduleRender();
   });
 }
 
 export function togglePlanItem(id) {
-  if (!Planner.toggle(id)) return;
-  Router.scheduleRender();
+  Planner.toggle(id);
 }
 
 export function togglePlanCompletedFilter() {
@@ -235,17 +231,17 @@ export function resetData() {
     { title: "Reset all data", ok: "Reset everything", danger: true },
   ).then((yes) => {
     if (!yes) return;
-    Store.db.courses = [];
-    Store.db.events = [];
-    Store.db.lessons = [];
-    Store.db.readings = [];
-    Store.db.documents = [];
-    Store.db.chunks = [];
-    Store.db.chat = [];
-    Store.db.plan = [];
-    Store.db.planMeta = null;
-    Store.db.activity = [];
-    Store.saveNow();
+    Store.resetAll();
+    UIState.set("courseId", "all");
+    UIState.set("timelineFilter", "all");
+    UIState.set("timelineSearch", "");
+    UIState.set("calendarCourseId", "all");
+    UIState.set("chatSources", []);
+    UIState.set("plannerPreview", null);
+    UIState.set("planProposal", null);
+    UIState.set("showCompletedPlan", false);
+    UIState.set("showReviewPlan", false);
+    UIState.set("draft", null);
     Router.navigate("dashboard");
     toast("All data has been reset.", "ok");
   });
@@ -285,6 +281,6 @@ export function reindexFn() {
   toast("Rebuilding retrieval index...", "info");
   RAG.reindexAll();
   Store.saveNow();
-  Router.scheduleRender();
+  Store.emit("change", { entity: "documents", op: "reindex", id: null });
   toast("Index rebuilt.", "ok");
 }

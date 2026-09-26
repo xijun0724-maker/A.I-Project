@@ -727,3 +727,188 @@
   font-size: 38px;
   margin-bottom: 10px;
 }
+
+/* ── Dual-View Tab Toggle Bar ────────────────────────────────────── */
+.roadmap-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.roadmap-view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: var(--rounded-pill);
+  border: 1.5px solid var(--rule);
+  background: var(--sheet);
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--duration-fast);
+}
+
+.roadmap-view-tab:hover {
+  border-color: var(--rule-accent);
+  color: var(--ink);
+}
+
+.roadmap-view-tab.active {
+  border-color: var(--pen);
+  background: var(--pen);
+  color: #fff;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .roadmap-view-tab {
+  background: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .roadmap-view-tab.active {
+  background: var(--pen);
+  border-color: var(--pen);
+  color: #fff;
+}
+
+/* ── Curriculum Matrix Table ─────────────────────────────────────── */
+.roadmap-matrix-card {
+  overflow: hidden;
+}
+
+.curriculum-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.curriculum-matrix-table th {
+  background: var(--paper-2);
+  color: var(--ink-2);
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--rule);
+  white-space: nowrap;
+}
+
+.curriculum-matrix-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  line-height: 1.45;
+}
+
+.curriculum-matrix-table tr:last-child td {
+  border-bottom: none;
+}
+
+.curriculum-matrix-table tr:hover td {
+  background: var(--paper-2);
+}
+
+.curriculum-matrix-table tr.cm-row-done td {
+  opacity: 0.6;
+}
+
+.cm-th-week { width: 68px; }
+.cm-th-ilo  { width: 22%; }
+.cm-th-content { width: 28%; }
+.cm-th-tla  { width: 22%; }
+.cm-th-assess { width: 20%; }
+
+.cm-week-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #fef08a;
+  border: 2px solid #ca8a04;
+  font-size: 11px;
+  font-weight: 800;
+  color: #713f12;
+  box-shadow: 0 2px 0 #854d0e;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .cm-week-badge {
+  background: #422006;
+  border-color: #ca8a04;
+  color: #fef08a;
+  box-shadow: 0 2px 0 #1c0a00;
+}
+
+.cm-topic {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 2px 0;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.cm-topic.is-done {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.cm-done-dot {
+  color: #7c3aed;
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.cm-ilo, .cm-tla {
+  font-size: 12px;
+  color: var(--ink-2);
+  padding: 2px 0;
+}
+
+.cm-assess {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+  font-weight: 500;
+  color: #1d4ed8;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.cm-assess:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
+
+[data-theme="dark"] .cm-assess {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .cm-assess:hover {
+  color: #93c5fd;
+}
+
+.cm-weight {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--rounded-pill);
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+[data-theme="dark"] .cm-weight {
+  background: #1e3a5f;
+  color: #93c5fd;
+}

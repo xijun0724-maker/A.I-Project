@@ -11,10 +11,6 @@ import { empty, pageHead } from "./shared.js";
 import { getCourseBanner } from "../config/templates.js";
 import { q, qa } from "../utils/dom.js";
 import {
-  toggleStarCourse,
-  toggleRemoveFromView,
-} from "../core/actions/courses.js";
-import {
   renderVisualRoadmapTree,
   renderDeadlines,
   renderReadings,
@@ -593,24 +589,16 @@ export function bindCoursesView(root) {
     });
   });
 
-  // Handle menu item actions directly (Star/Unstar, Remove/Restore)
+  // Handle menu item clicks: close popover
   qa(".lms-menu-item", root).forEach((item) => {
-    item.addEventListener("click", (e) => {
-      e.stopPropagation();
+    item.addEventListener("click", () => {
       const popover = item.closest(".lms-kebab-popover");
       if (popover) popover.style.display = "none";
       qa(".lms-kebab-btn", root).forEach((b) => b.classList.remove("active"));
       qa(".lms-course-card", root).forEach((c) => c.classList.remove("menu-open"));
-
-      const action = item.getAttribute("data-act");
-      const id = item.getAttribute("data-id");
-      if (action === "toggle-star-course") {
-        toggleStarCourse(id);
-      } else if (action === "toggle-remove-view-course") {
-        toggleRemoveFromView(id);
-      }
     });
   });
+
 
   // Global click & Escape listener closes open dropdowns
   if (_docListenerCtl) _docListenerCtl.abort();

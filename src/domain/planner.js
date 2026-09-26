@@ -104,6 +104,81 @@ Planner.units = function (courseId, exclude) {
       });
     });
   });
+  // ── Track 2: Topic Study ───────────────────────────────────────────────
+  // Schedule prep time for each uncovered syllabus lesson before its week.
+  const lessons = (Store.db.lessons || [])
+    .filter(function (l) {
+      if (l.done) return false;
+      if (courseId && courseId !== "all" && l.courseId !== courseId)
+        return false;
+      return true;
+    });
+  lessons.forEach(function (l) {
+    // Derive a due date: the START of the lesson's week, or null.
+    let due = l.start || null;
+    if (!due && l.week) {
+      const settings = (Store.db && Store.db.settings) || {};
+      const termStart = fromIso(settings.termStart);
+      if (termStart) {
+        const d = addDays(termStart, (Number(l.week) - 1) * 7);
+        due = dateOnly(d);
+      }
+    }
+    const minutes = 45; // default topic study block
+    const key = [l.courseId || "", slug(l.topic || ""), due || "none"].join("|");
+    if (seenUnits[key]) return;
+    seenUnits[key] = true;
+    out.push({
+      eventId: null,
+      subtaskId: null,
+      lessonId: l.id,
+      title: "Study: " + (l.topic || "Lesson W" + l.week),
+      minutes,
+      courseId: l.courseId || null,
+      due,
+      score: due ? Math.max(1, 8 - daysUntil(due) / 7) : 1,
+      track: "topic",
+    });
+  });
+
+  // ── Track 3: Required Readings ─────────────────────────────────────────
+  // Schedule one reading block per unread reading, sized by page count.
+  const readings = (Store.db.readings || [])
+    .filter(function (r) {
+      if (r.status === "done" || r.optional) return false;
+      if (courseId && courseId !== "all" && r.courseId !== courseId)
+        return false;
+      return true;
+    });
+  readings.forEach(function (r) {
+    const pages = parseInt(r.pages, 10) || 0;
+    // ~2 min/page, min 20 min, max 90 min
+    const minutes = Math.min(90, Math.max(20, pages ? pages * 2 : 30));
+    let due = null;
+    if (r.week) {
+      const settings = (Store.db && Store.db.settings) || {};
+      const termStart = fromIso(settings.termStart);
+      if (termStart) {
+        const d = addDays(termStart, (Number(r.week) - 1) * 7);
+        due = dateOnly(d);
+      }
+    }
+    const key = [r.courseId || "", slug(r.title || ""), due || "none"].join("|");
+    if (seenUnits[key]) return;
+    seenUnits[key] = true;
+    out.push({
+      eventId: null,
+      subtaskId: null,
+      readingId: r.id,
+      title: "Read: " + (r.title || "Reading"),
+      minutes,
+      courseId: r.courseId || null,
+      due,
+      score: due ? Math.max(0.5, 5 - daysUntil(due) / 7) : 0.5,
+      track: "reading",
+    });
+  });
+
   return sortBy(out, function (u) {
     return -u.score;
   });
@@ -282,9 +357,10 @@ Planner.generateInteractive = schedule;
  * @returns {object} The stored planMeta
  */
 Planner.commit = function (result) {
-  Store.db.plan = (result && result.planItems) || [];
-  Store.db.planMeta = (result && result.meta) || null;
-  Store.saveNow();
+  Store.plan.save(
+    (result && result.planItems) || [],
+    (result && result.meta) || null,
+  );
   return Store.db.planMeta;
 };
 
@@ -299,9 +375,7 @@ Planner.generate = function (opts) {
 };
 
 Planner.clear = function () {
-  Store.db.plan = [];
-  Store.db.planMeta = null;
-  Store.saveNow();
+  Store.plan.clear();
 };
 
 Planner.toggle = function (planId) {
@@ -349,6 +423,7 @@ Planner.toggle = function (planId) {
     }
   }
   Store.saveNow();
+  Store.emit("change", { entity: "plan", op: "toggle", id: planId });
   return it;
 };
 

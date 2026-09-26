@@ -172,6 +172,8 @@ export const CFG = {
     apiRefine: 110000,
     apiAnswer: 90000,
     apiTest: 30000,
+    minUsefulWindow: 4000,
+    maxRetryAfterMs: 5000,
     pdfParse: 30000,
     fileParse: 20000,
     toastDefault: 4200,

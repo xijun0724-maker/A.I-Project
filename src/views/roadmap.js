@@ -223,6 +223,113 @@ function renderTables() {
 }
 
 /**
+ * Render PNU Curriculum Matrix table — Week × ILOs × Content × TLA × Assessment.
+ * Mirrors the session-plan table structure used in PNU TEDPATH syllabi.
+ * @param {Object} course - Active course
+ * @param {Array} allLessons - Lessons/topics from syllabus
+ * @param {Array} allEvents - Course events/assessments
+ * @param {Array} allReadings - Course readings
+ * @returns {string} HTML markup
+ */
+function renderCurriculumMatrix(course, allLessons, allEvents, allReadings) {
+  if (!course) return "";
+  const courseLessons = (allLessons || []).filter(
+    (l) => l.courseId === course.id,
+  );
+  const courseEvents = (allEvents || []).filter(
+    (e) => e.courseId === course.id,
+  );
+  if (!courseLessons.length) return "";
+
+  const byWeek = groupBy(courseLessons, (l) => {
+    const w = Number(l.week);
+    return Number.isFinite(w) && w > 0 ? w : 1;
+  });
+  const weeks = Object.keys(byWeek)
+    .map(Number)
+    .filter((w) => Number.isFinite(w) && byWeek[w] && byWeek[w].length)
+    .sort((a, b) => a - b);
+
+  let h =
+    '<div class="tbl-wrap scroll-md"><table class="curriculum-matrix-table" aria-label="Curriculum matrix">' +
+    "<thead><tr>" +
+    '<th class="cm-th-week">Week / Session</th>' +
+    '<th class="cm-th-ilo">Course Intended Learning Outcomes</th>' +
+    '<th class="cm-th-content">Content / Topics</th>' +
+    '<th class="cm-th-tla">Learning Activities (TLA)</th>' +
+    '<th class="cm-th-assess">Assessment</th>' +
+    "</tr></thead><tbody>";
+
+  weeks.forEach((w) => {
+    const group = byWeek[w] || [];
+    const weekEvents = courseEvents.filter(
+      (e) => Number(e.week) === w,
+    );
+    const isWeekDone = group.length > 0 && group.every((l) => l.done);
+    const topicsHtml = group
+      .map(
+        (l) =>
+          '<div class="cm-topic' +
+          (l.done ? " is-done" : "") +
+          '" data-act="lesson-edit" data-id="' +
+          esc(l.id) +
+          '">' +
+          (l.done ? '<span class="cm-done-dot" title="Covered">✓</span>' : "") +
+          esc(l.topic) +
+          "</div>",
+      )
+      .join("");
+    const ilosHtml = group
+      .map((l) => (l.ilo ? '<div class="cm-ilo">' + esc(l.ilo) + "</div>" : ""))
+      .filter(Boolean)
+      .join("") || '<span class="muted small">—</span>';
+    const tlasHtml = group
+      .map((l) => (l.tla ? '<div class="cm-tla">' + esc(l.tla) + "</div>" : ""))
+      .filter(Boolean)
+      .join("") || '<span class="muted small">—</span>';
+    const assessHtml = weekEvents.length
+      ? weekEvents
+          .map(
+            (e) =>
+              '<div class="cm-assess" data-act="event-edit" data-id="' +
+              esc(e.id) +
+              '">' +
+              esc(e.title) +
+              (e.weight != null
+                ? ' <span class="cm-weight">' + e.weight + "%</span>"
+                : "") +
+              "</div>",
+          )
+          .join("")
+      : '<span class="muted small">—</span>';
+
+    h +=
+      "<tr" +
+      (isWeekDone ? ' class="cm-row-done"' : "") +
+      ">" +
+      '<td class="cm-td-week"><span class="cm-week-badge">W' +
+      w +
+      "</span></td>" +
+      '<td class="cm-td-ilo">' +
+      ilosHtml +
+      "</td>" +
+      '<td class="cm-td-content">' +
+      (topicsHtml || '<span class="muted small">—</span>') +
+      "</td>" +
+      '<td class="cm-td-tla">' +
+      tlasHtml +
+      "</td>" +
+      '<td class="cm-td-assess">' +
+      assessHtml +
+      "</td>" +
+      "</tr>";
+  });
+
+  h += "</tbody></table></div>";
+  return h;
+}
+
+/**
  * Render visual roadmap.sh-style curriculum tree (matching Image 3)
  * @param {Object} course - Active course
  * @param {Array} allLessons - Lessons/topics from syllabus
@@ -521,7 +628,43 @@ function renderVisualRoadmapTree(
   h += "</div>"; // closes .roadmap-tree-canvas
 
   h += "</div>"; // closes .roadmap-visual-wrapper
-  return h;
+
+  // ── Dual-view wrapper: Visual Tree | Curriculum Matrix ─────────────────
+  const view = (UIState && UIState.roadmapView) || "tree";
+  const matrixHtml = renderCurriculumMatrix(
+    course,
+    allLessons,
+    allEvents,
+    allReadings,
+  );
+  const showMatrix = view === "matrix" && matrixHtml;
+
+  const tabBar =
+    '<div class="roadmap-view-tabs" role="tablist" aria-label="Roadmap view">' +
+    '<button type="button" class="roadmap-view-tab' +
+    (!showMatrix ? " active" : "") +
+    '" data-act="roadmap-view" data-view="tree" role="tab" aria-selected="' +
+    (!showMatrix ? "true" : "false") +
+    '">🗺 Visual Roadmap</button>' +
+    (matrixHtml
+      ? '<button type="button" class="roadmap-view-tab' +
+        (showMatrix ? " active" : "") +
+        '" data-act="roadmap-view" data-view="matrix" role="tab" aria-selected="' +
+        (showMatrix ? "true" : "false") +
+        '">📋 Curriculum Matrix</button>'
+      : "") +
+    "</div>";
+
+  return (
+    tabBar +
+    (showMatrix
+      ? '<div class="card roadmap-matrix-card">' +
+        '<div class="card-head"><h2>PNU Curriculum Matrix</h2>' +
+        '<span class="tiny muted">Week × ILOs × Content × TLA × Assessment</span></div>' +
+        matrixHtml +
+        "</div>"
+      : h)
+  );
 }
 
 export {
@@ -529,6 +672,7 @@ export {
   renderDeadlines,
   renderReadings,
   renderTables,
+  renderCurriculumMatrix,
 };
 
 export function roadmap() {

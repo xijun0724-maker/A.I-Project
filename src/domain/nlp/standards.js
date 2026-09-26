@@ -48,11 +48,31 @@ export function analyseAgainstStandard(text, result, standard) {
   });
 
   const weights = [];
+  // Only collect percentages that appear in the course requirements / grading
+  // breakdown section, and skip the PNU grade-point-scale table rows.
+  let inGradingSection = false;
+  let pastGradeScale = false;
   source.split(/\r?\n/).forEach(function (line) {
-    if (/\b(?:total|subtotal|highest mark|passing mark)\b/i.test(line)) return;
-    const matches = line.match(/\b\d{1,3}(?:\.\d+)?\s*%/g) || [];
+    if (
+      /\b(?:grading\s+system|course\s+requirements|formative\s+assessment|summative\s+assessment)\b/i.test(
+        line,
+      )
+    )
+      inGradingSection = true;
+    if (
+      /\b(?:grade\s+in\s+percent|grade\s+point\s+scale|adjectival\s+description)\b/i.test(
+        line,
+      )
+    )
+      pastGradeScale = true;
+    if (!inGradingSection || pastGradeScale) return;
+    if (/\b(?:total|subtotal|highest\s+mark|passing\s+mark)\b/i.test(line)) return;
+    // Skip PNU grade-scale rows e.g. "98 - 100   1.00   Excellent"
+    if (/\b\d{2,3}\s*[-–]\s*\d{2,3}(?:\.\d+)?\s+\d+\.\d{2}\b/.test(line)) return;
+    const matches = line.match(/\b(\d{1,3}(?:\.\d+)?)\s*%/g) || [];
     matches.forEach(function (value) {
-      weights.push(parseFloat(value));
+      const v = parseFloat(value);
+      if (v > 0 && v <= 100) weights.push(v);
     });
   });
   const weightTotal = weights.reduce(function (sum, value) {

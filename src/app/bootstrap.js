@@ -38,8 +38,16 @@ async function boot() {
     initChrome();
     initFocusTrap();
     initLifecycle();
-
     Router.init();
+
+    // Reactive seam: render automatically whenever Store mutations occur,
+    // and invalidate RAG index when library documents or courses change.
+    Store.on("change", ({ entity }) => {
+      Router.scheduleRender();
+      if (entity === "documents" || entity === "courses" || entity === "all") {
+        RAG.invalidate();
+      }
+    });
 
     // Hide loader once app is ready
     const app = document.getElementById("app");

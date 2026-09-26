@@ -58,13 +58,27 @@ export function analyse(input) {
     res.meta.lines = lines.length;
 
     lines.forEach(function (line, index) {
-      const courseNumber = /^course\s+number\s+(.+)$/i.exec(line);
+      const courseNumber = /^course\s+(?:number|no\.?|code)\s+(.+)$/i.exec(line);
       const courseTitle = /^course\s+title\s+(.+)$/i.exec(line);
       const description = /^course\s+description\s+(.+)$/i.exec(line);
-      if (courseNumber) res.courseMeta.code = clean(courseNumber[1]);
-      if (courseTitle) res.courseMeta.title = clean(courseTitle[1]);
+      if (courseNumber) {
+        const code = clean(courseNumber[1])
+          .replace(/\s*Course\s+(?:Title|Description|Pre-?requisite).*$/i, "")
+          .trim();
+        if (code) res.courseMeta.code = code;
+      }
+      if (courseTitle) {
+        const title = clean(courseTitle[1])
+          .replace(/\s*Course\s+(?:Description|Pre-?requisite|Number).*$/i, "")
+          .trim();
+        if (title) res.courseMeta.title = title;
+      }
       if (description) res.courseMeta.description = clean(description[1]);
-      if (/^session\s+no\.?\s*\/?\s*duration/i.test(line))
+      if (
+        /^session\s+(?:no\.?|course\s+intended)/i.test(line) ||
+        /^instructional\s+delivery\s+design/i.test(line) ||
+        /^session\s+course\s+intended\s+content/i.test(line)
+      )
         res.meta.sessionTable = index;
     });
 
@@ -75,7 +89,12 @@ export function analyse(input) {
     const blocks = [];
     lines.forEach(function (l) {
       const w = weekOf(l);
-      if (/^session\s+no\.?\s*\/?\s*duration/i.test(l)) sessionMode = true;
+      if (
+        /^session\s+(?:no\.?|course\s+intended)/i.test(l) ||
+        /^instructional\s+delivery\s+design/i.test(l) ||
+        /^session\s+course\s+intended\s+content/i.test(l)
+      )
+        sessionMode = true;
       const session = sessionMode ? sessionOf(l) : null;
       if (w !== null || session !== null) {
         if (cur.header || cur.lines.length) blocks.push(cur);

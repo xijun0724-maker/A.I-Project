@@ -313,6 +313,7 @@ export async function StudyPlanAgent(goal, opts) {
   const ask = async (messages) => {
     const r = await chatFn(messages, {
       timeout: requestTimeout(),
+      deadline: deadline === Infinity ? undefined : deadline,
       maxTokens: opts.maxTokens || 1024,
       signal: signal || undefined,
     });

@@ -52,6 +52,7 @@ export function applyTermSyllabi(termStartIso) {
   Store.db.planMeta = null;
 
   Store.saveNow();
+  Store.emit("change", { entity: "courses", op: "replace", id: null });
 
   return {
     label: built.label,

@@ -4,7 +4,7 @@
 
 import { CFG } from "../config/constants.js";
 import { Store } from "../core/store.js";
-import { getApiKey } from "../utils/secure.js";
+import { getApiKey, keyStatus } from "../utils/secure.js";
 
 export function settings() {
   return Store.db.settings;
@@ -36,26 +36,35 @@ export function normalizeGeminiModel(model) {
 
 export function status() {
   const s = settings();
-  const key = getApiKey(s.provider || "gemini");
+  const provider = s.provider || "gemini";
+  const key = getApiKey(provider);
   if (!s.aiEnabled)
     return {
       on: false,
       label: "Offline mode",
       why: "AI is switched off in Settings.",
     };
-  if (!key)
+  if (!key) {
+    const ks = keyStatus(provider);
+    if (ks && ks.expired) {
+      return {
+        on: false,
+        label: "Offline mode",
+        why: "Your saved API key expired after 30 days without use — paste it again in Settings.",
+      };
+    }
     return {
       on: false,
       label: "Offline mode",
       why: "No API key configured - running on the built-in analyser.",
     };
+  }
   if (key.length <= 10)
     return {
       on: false,
       label: "Offline mode",
       why: "API key looks invalid - check the key in Settings.",
     };
-  const provider = s.provider || "gemini";
   const model =
     provider === "openrouter"
       ? s.model || CFG.openrouter.model
@@ -359,9 +368,31 @@ function buildProviderRequest(messages, opts, s) {
   };
 }
 
-function chatWithRetry(messages, opts, s, retryCount, maxRetries, baseDelay) {
+function chatWithRetry(
+  messages,
+  opts,
+  s,
+  retryCount,
+  maxRetries,
+  baseDelay,
+  deadline,
+) {
+  const effectiveDeadline =
+    deadline != null
+      ? deadline
+      : Date.now() + (opts.timeout || CFG.timeouts.apiDefault);
+  const remaining = effectiveDeadline - Date.now();
+  if (remaining <= 0) {
+    return Promise.resolve({
+      ok: false,
+      error: "The request ran out of time before it was sent.",
+      timedOut: true,
+      retryable: false,
+    });
+  }
+
   const req = buildProviderRequest(messages, opts, s);
-  const timeout = opts.timeout || CFG.timeouts.apiDefault;
+  const timeout = Math.min(opts.timeout || CFG.timeouts.apiDefault, remaining);
   const callerSignal = opts.signal || null;
 
   /* A caller (the agent loop, a Stop button) can cancel this request. A
@@ -414,6 +445,12 @@ function chatWithRetry(messages, opts, s, retryCount, maxRetries, baseDelay) {
             detail || req.label + " returned " + res.status,
           );
           err.status = res.status;
+          const retryAfter =
+            res.headers && res.headers.get ? res.headers.get("retry-after") : null;
+          if (retryAfter) {
+            const sec = parseFloat(retryAfter);
+            if (!Number.isNaN(sec)) err.retryAfter = sec;
+          }
           throw err;
         });
       }
@@ -440,10 +477,19 @@ function chatWithRetry(messages, opts, s, retryCount, maxRetries, baseDelay) {
       }
 
       const retriable = aborted || status === 429 || status === 503;
-      if (retriable && retryCount < maxRetries) {
-        const extra = status === 503 ? 2000 : 0;
-        const delay =
-          baseDelay * Math.pow(2, retryCount) + Math.random() * 500 + extra;
+      const minWindow = CFG.timeouts.minUsefulWindow || 4000;
+      const maxRetryAfter = CFG.timeouts.maxRetryAfterMs || 5000;
+
+      let delay =
+        baseDelay * Math.pow(2, retryCount) + Math.random() * 500 + (status === 503 ? 2000 : 0);
+      if (e && e.retryAfter) {
+        delay = Math.min(e.retryAfter * 1000, maxRetryAfter);
+      }
+
+      /* Never start an attempt the deadline cannot cover, and never retry a cancel. */
+      const canAfford = effectiveDeadline - Date.now() - delay > minWindow;
+
+      if (retriable && retryCount < maxRetries && canAfford) {
         return sleep(delay).then(() =>
           chatWithRetry(
             messages,
@@ -452,13 +498,14 @@ function chatWithRetry(messages, opts, s, retryCount, maxRetries, baseDelay) {
             retryCount + 1,
             maxRetries,
             baseDelay,
+            effectiveDeadline,
           ),
         );
       }
-      const msg = aborted
+      const msg = timedOut
         ? "The request timed out after " + Math.round(timeout / 1000) + "s."
         : formatError(e, req.label);
-      return { ok: false, error: msg, retryable: retriable };
+      return { ok: false, error: msg, retryable: retriable, timedOut: timedOut };
     });
 }
 
@@ -481,6 +528,26 @@ export async function chat(messages, opts = {}) {
     maxChars: opts.maxChars != null ? opts.maxChars : CFG.maxChatChars,
   });
   const safeMessages = budget.messages;
+
+  if (
+    messageChars(budget.messages) >
+      budget.maxChars + (CFG.maxChatChars || 20000) * 0.1 ||
+    messageChars(messages) >
+      (opts.maxChars != null ? opts.maxChars : CFG.maxChatChars) +
+        (CFG.maxChatChars || 20000) * 0.1
+  ) {
+    return {
+      ok: false,
+      off: true,
+      error:
+        "That question is too long for one request — trim the message or narrow it to one document.",
+    };
+  }
+
+  const deadline =
+    opts.deadline != null
+      ? opts.deadline
+      : Date.now() + (opts.timeout || CFG.timeouts.apiDefault);
 
   async function attempt(retryCount) {
     const s = settings();
@@ -511,6 +578,7 @@ export async function chat(messages, opts = {}) {
       retryCount,
       maxRetries,
       baseDelay,
+      deadline,
     );
   }
 

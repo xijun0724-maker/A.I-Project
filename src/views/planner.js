@@ -529,14 +529,32 @@ export function planner() {
       '<div class="planner-day-blocks mt">';
 
     items.forEach(function (p) {
-      const kindMatch = /^Review:/i.test(String(p.label || ""));
+      const isReview = /^Review:/i.test(String(p.label || ""));
+      const isStudy = /^Study:/i.test(String(p.label || ""));
+      const isReading = /^Read:/i.test(String(p.label || ""));
       const dueSoon = !!(
         p.due &&
         fromIso(p.due) &&
         (fromIso(p.due) - new Date()) / 86400000 <= 2
       );
-      const kind = kindMatch ? "review" : dueSoon ? "urgent" : "default";
-      const kindLabel = kindMatch ? "Review" : dueSoon ? "Urgent" : "Planned";
+      const kind = isReview
+        ? "review"
+        : isStudy
+          ? "study"
+          : isReading
+            ? "reading"
+            : dueSoon
+              ? "urgent"
+              : "default";
+      const kindLabel = isReview
+        ? "Review"
+        : isStudy
+          ? "Study"
+          : isReading
+            ? "Reading"
+            : dueSoon
+              ? "Urgent"
+              : "Planned";
       const courseName = Store.courseName(p.courseId);
 
       h +=
@@ -558,12 +576,16 @@ export function planner() {
         '">' +
         (p.done ? "&#10003;" : "") +
         "</button>" +
-        // 2. Clickable Schedule Content (Click to view/edit task)
-        '<div class="sched-block-content" data-act="event-edit" data-id="' +
-        esc(p.eventId) +
-        '" role="button" tabindex="0" title="Click to view or edit task: ' +
-        esc(p.label) +
-        '">' +
+        // 2. Clickable Schedule Content (non-events open as read-only)
+        '<div class="sched-block-content"' +
+        (p.eventId
+          ? ' data-act="event-edit" data-id="' +
+            esc(p.eventId) +
+            '" role="button" tabindex="0" title="Click to view or edit task: ' +
+            esc(p.label) +
+            '"'
+          : "") +
+        ">" +
         '<div class="sched-label-row">' +
         '<span class="sched-badge ' +
         kind +
@@ -684,25 +706,47 @@ function renderPlannerPreview(preview) {
       '<div class="planner-day-blocks mt">';
 
     day.items.forEach(function (p) {
-      const kindMatch = /^Review:/i.test(String(p.label || ""));
+      const isReview = /^Review:/i.test(String(p.label || ""));
+      const isStudy = /^Study:/i.test(String(p.label || ""));
+      const isReading = /^Read:/i.test(String(p.label || ""));
       const dueSoon = !!(
         p.due &&
         fromIso(p.due) &&
         (fromIso(p.due) - new Date()) / 86400000 <= 2
       );
-      const kind = kindMatch ? "review" : dueSoon ? "urgent" : "default";
-      const kindLabel = kindMatch ? "Review" : dueSoon ? "Urgent" : "Planned";
+      const kind = isReview
+        ? "review"
+        : isStudy
+          ? "study"
+          : isReading
+            ? "reading"
+            : dueSoon
+              ? "urgent"
+              : "default";
+      const kindLabel = isReview
+        ? "Review"
+        : isStudy
+          ? "Study"
+          : isReading
+            ? "Reading"
+            : dueSoon
+              ? "Urgent"
+              : "Planned";
       const courseName = Store.courseName(p.courseId);
 
       h +=
         '<div class="sched-block" data-plan-kind="' +
         kind +
         '">' +
-        '<div class="sched-block-content" data-act="event-edit" data-id="' +
-        esc(p.eventId) +
-        '" role="button" tabindex="0" title="Click to view task: ' +
-        esc(p.label) +
-        '">' +
+        '<div class="sched-block-content"' +
+        (p.eventId
+          ? ' data-act="event-edit" data-id="' +
+            esc(p.eventId) +
+            '" role="button" tabindex="0" title="Click to view task: ' +
+            esc(p.label) +
+            '"'
+          : "") +
+        ">" +
         '<div class="sched-label-row">' +
         '<span class="sched-badge ' +
         kind +

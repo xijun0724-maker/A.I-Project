@@ -206,6 +206,10 @@
   border-left: 3px solid var(--warn, #f59e0b);
 }.sched-block.default{
   border-left: 3px solid var(--ok, #10b981);
+}.sched-block.study{
+  border-left: 3px solid #8b5cf6;
+}.sched-block.reading{
+  border-left: 3px solid #06b6d4;
 }.sched-block-content{
   flex: 1;
   min-width: 0;
@@ -248,7 +252,7 @@
   text-transform: uppercase;
   letter-spacing: 0.05em;
   flex-shrink: 0;
-}.sched-badge.review{ background: var(--info-soft); color: var(--info); }.sched-badge.urgent{ background: var(--warn-soft); color: var(--warn); }.sched-badge.default{ background: var(--ok-soft); color: var(--ok); }.sched-meta-row{
+}.sched-badge.review{ background: var(--info-soft); color: var(--info); }.sched-badge.urgent{ background: var(--warn-soft); color: var(--warn); }.sched-badge.default{ background: var(--ok-soft); color: var(--ok); }.sched-badge.study{ background: #ede9fe; color: #7c3aed; }.sched-badge.reading{ background: #cffafe; color: #0e7490; }.sched-meta-row{
   display: flex;
   align-items: center;
   gap: 6px;

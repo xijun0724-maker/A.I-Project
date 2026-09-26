@@ -143,7 +143,16 @@ describe('Dashboard.readiness', () => {
 });
 
 describe('Dashboard - Synchronized "To do:" card', () => {
-  it('renders heading "To do:" with + Add to-do button', () => {
+  it('renders clean Welcome / Empty state card when no courses and no events exist', () => {
+    Store.resetAll();
+    const html = dashboardView.fn();
+    expect(html).toContain('Your academic dashboard is blank');
+    expect(html).toContain('Import syllabus');
+    expect(html).toContain('Add course');
+  });
+
+  it('renders heading "To do:" with + Add to-do button when data is loaded', () => {
+    Store.db.courses = [{ id: 'c1', title: 'Calculus I', code: 'MATH101', color: '#3b82f6' }];
     const html = dashboardView.fn();
     expect(html).toContain('<h2>To do:</h2>');
     expect(html).toContain('+ Add to-do');

@@ -207,6 +207,7 @@ export function applyBackup(data) {
   Store.deduplicateData(Store.db);
   RAG.reindexAll();
   Store.saveNow();
+  Store.emit("change", { entity: "all", op: "restore", id: null });
   return migrated;
 }
 
@@ -231,7 +232,6 @@ export function importData() {
           );
         }
         applyBackup(data);
-        Router.scheduleRender();
         toast("Data imported successfully.", "ok");
       } catch (e) {
         toast(e.message || "Import failed.", "bad", "Import error");

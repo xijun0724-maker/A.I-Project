@@ -8,11 +8,12 @@
  */
 
 import { CFG } from "../config/constants.js";
-import { debounce, fmtBytes, slug } from "../utils/helpers.js";
+import { debounce, fmtBytes, slug, uid } from "../utils/helpers.js";
 import { toast } from "../utils/dom.js";
 import { createBlankDB, migrateSchema } from "../config/settings.js";
 import { stripKey } from "../utils/secure.js";
 import { idbAvailable, idbGet, idbSet } from "./idb.js";
+import { recompute as recomputeTask } from "../domain/tasks.js";
 
 // Sidecar key: last successful persist timestamp for the main DB key.
 // Used to decide whether IndexedDB holds a newer snapshot than localStorage.
@@ -556,6 +557,7 @@ function removeCourse(id) {
     return p.courseId !== id;
   });
   saveNow();
+  emit("change", { entity: "courses", op: "remove", id });
 }
 
 /**
@@ -565,7 +567,297 @@ function resetAll() {
   db = maybeSeal(blank());
   saveNow();
   emit("reset", db);
+  emit("change", { entity: "all", op: "reset", id: null });
 }
+
+function notifyChange(entity, op, id) {
+  saveNow();
+  emit("change", { entity, op, id });
+}
+
+const coursesNamespace = {
+  all() {
+    return (db && db.courses) || [];
+  },
+  get(id) {
+    return course(id);
+  },
+  save(data) {
+    if (!data) return null;
+    const list = db.courses || [];
+    const existing = data.id ? list.find((c) => c.id === data.id) : null;
+    if (existing) {
+      Object.assign(existing, data);
+      notifyChange("courses", "update", existing.id);
+      return existing;
+    }
+    const c = {
+      id: data.id || uid("crs"),
+      code: data.code || "",
+      name: data.name || "",
+      color: data.color || (CFG.palette && CFG.palette[0]) || "#2f5d8c",
+      termId: data.termId || "current",
+      starred: !!data.starred,
+      ...data,
+    };
+    list.push(c);
+    db.courses = list;
+    notifyChange("courses", "insert", c.id);
+    return c;
+  },
+  remove(id) {
+    removeCourse(id);
+    return true;
+  },
+  toggleStar(id) {
+    const c = course(id);
+    if (!c) return false;
+    c.starred = !c.starred;
+    notifyChange("courses", "toggleStar", id);
+    return c.starred;
+  },
+};
+
+const eventsNamespace = {
+  all() {
+    return (db && db.events) || [];
+  },
+  get(id) {
+    return event(id);
+  },
+  save(data) {
+    if (!data) return null;
+    const list = db.events || [];
+    const existing = data.id ? list.find((e) => e.id === data.id) : null;
+    if (existing) {
+      Object.assign(existing, data);
+      recomputeTask(existing);
+      notifyChange("events", "update", existing.id);
+      return existing;
+    }
+    const ev = {
+      id: data.id || uid("ev"),
+      title: data.title || "",
+      courseId: data.courseId || "",
+      type: data.type || "assignment",
+      due: data.due || "",
+      status: data.status || "open",
+      createdAt: data.createdAt || new Date().toISOString(),
+      ...data,
+    };
+    recomputeTask(ev);
+    list.push(ev);
+    db.events = list;
+    notifyChange("events", "insert", ev.id);
+    return ev;
+  },
+  remove(id) {
+    db.events = (db.events || []).filter((e) => e.id !== id);
+    db.plan = (db.plan || []).filter((p) => p.eventId !== id);
+    notifyChange("events", "remove", id);
+    return true;
+  },
+  toggle(id) {
+    const ev = event(id);
+    if (!ev) return null;
+    const goingDone = ev.status !== "done";
+    ev.status = goingDone ? "done" : "open";
+    ev.completedAt = goingDone ? new Date().toISOString() : null;
+    (ev.subtasks || []).forEach((s) => {
+      s.done = goingDone;
+    });
+    recomputeTask(ev);
+    notifyChange("events", "toggle", id);
+    return ev;
+  },
+  toggleSubtask(eventId, subId) {
+    const ev = event(eventId);
+    if (!ev) return null;
+    const sub = (ev.subtasks || []).find((s) => s.id === subId);
+    if (!sub) return null;
+    sub.done = !sub.done;
+    recomputeTask(ev);
+    notifyChange("events", "toggle-subtask", eventId);
+    return sub;
+  },
+};
+
+const lessonsNamespace = {
+  all() {
+    return (db && db.lessons) || [];
+  },
+  get(id) {
+    return lesson(id);
+  },
+  save(data) {
+    if (!data) return null;
+    const list = db.lessons || [];
+    const existing = data.id ? list.find((l) => l.id === data.id) : null;
+    if (existing) {
+      Object.assign(existing, data);
+      notifyChange("lessons", "update", existing.id);
+      return existing;
+    }
+    const l = {
+      id: data.id || uid("lsn"),
+      courseId: data.courseId || "",
+      title: data.title || "",
+      done: !!data.done,
+      ...data,
+    };
+    list.push(l);
+    db.lessons = list;
+    notifyChange("lessons", "insert", l.id);
+    return l;
+  },
+  remove(id) {
+    db.lessons = (db.lessons || []).filter((l) => l.id !== id);
+    notifyChange("lessons", "remove", id);
+    return true;
+  },
+  toggle(id) {
+    const l = lesson(id);
+    if (!l) return false;
+    l.done = !l.done;
+    notifyChange("lessons", "toggle", id);
+    return l.done;
+  },
+};
+
+const readingsNamespace = {
+  all() {
+    return (db && db.readings) || [];
+  },
+  get(id) {
+    return (db && db.readings && db.readings.find((r) => r.id === id)) || null;
+  },
+  save(data) {
+    if (!data) return null;
+    const list = db.readings || [];
+    const existing = data.id ? list.find((r) => r.id === data.id) : null;
+    if (existing) {
+      Object.assign(existing, data);
+      notifyChange("readings", "update", existing.id);
+      return existing;
+    }
+    const r = {
+      id: data.id || uid("rdg"),
+      courseId: data.courseId || "",
+      title: data.title || "",
+      done: !!data.done,
+      ...data,
+    };
+    list.push(r);
+    db.readings = list;
+    notifyChange("readings", "insert", r.id);
+    return r;
+  },
+  remove(id) {
+    db.readings = (db.readings || []).filter((r) => r.id !== id);
+    notifyChange("readings", "remove", id);
+    return true;
+  },
+  toggle(id) {
+    const r = readingsNamespace.get(id);
+    if (!r) return false;
+    r.status = r.status === "done" ? "required" : "done";
+    r.done = r.status === "done";
+    notifyChange("readings", "toggle", id);
+    return r.done;
+  },
+};
+
+const documentsNamespace = {
+  all() {
+    return (db && db.documents) || [];
+  },
+  get(id) {
+    return doc(id);
+  },
+  save(data) {
+    if (!data) return null;
+    const list = db.documents || [];
+    const existing = data.id ? list.find((d) => d.id === data.id) : null;
+    if (existing) {
+      Object.assign(existing, data);
+      notifyChange("documents", "update", existing.id);
+      return existing;
+    }
+    const d = {
+      id: data.id || uid("doc"),
+      name: data.name || "",
+      courseId: data.courseId || "",
+      text: data.text || "",
+      ...data,
+    };
+    list.push(d);
+    db.documents = list;
+    notifyChange("documents", "insert", d.id);
+    return d;
+  },
+  remove(id) {
+    db.documents = (db.documents || []).filter((x) => x.id !== id);
+    db.chunks = (db.chunks || []).filter((c) => c.docId !== id);
+    notifyChange("documents", "remove", id);
+    return true;
+  },
+};
+
+const chatNamespace = {
+  all() {
+    return (db && db.chat) || [];
+  },
+  append(msg) {
+    if (!msg) return;
+    const list = db.chat || [];
+    list.push(msg);
+    const max = CFG.maxChatMessages || 100;
+    db.chat = list.length > max ? list.slice(list.length - max) : list;
+    notifyChange("chat", "append", null);
+  },
+  clear() {
+    db.chat = [];
+    notifyChange("chat", "clear", null);
+  },
+  removeRecent(content) {
+    if (!content) return;
+    db.chat = (db.chat || []).filter(function (m) {
+      return !(m.role === "user" && m.content === content);
+    });
+    notifyChange("chat", "remove", content);
+  },
+};
+
+const planNamespace = {
+  get() {
+    return {
+      blocks: (db && db.plan) || [],
+      meta: (db && db.planMeta) || null,
+    };
+  },
+  save(blocks, meta) {
+    db.plan = blocks || [];
+    if (meta !== undefined) db.planMeta = meta;
+    notifyChange("plan", "save", null);
+  },
+  clear() {
+    db.plan = [];
+    db.planMeta = null;
+    notifyChange("plan", "clear", null);
+  },
+};
+
+const settingsNamespace = {
+  get() {
+    return (db && db.settings) || {};
+  },
+  update(patch) {
+    if (!patch || typeof patch !== "object") return db.settings;
+    Object.assign(db.settings, patch);
+    notifyChange("settings", "update", null);
+    return db.settings;
+  },
+};
 
 // Export the Store API
 export const Store = {
@@ -596,6 +888,17 @@ export const Store = {
   lesson,
   removeCourse,
   resetAll,
+
+  // Deep entity namespaces
+  courses: coursesNamespace,
+  events: eventsNamespace,
+  tasks: eventsNamespace,
+  lessons: lessonsNamespace,
+  readings: readingsNamespace,
+  documents: documentsNamespace,
+  chat: chatNamespace,
+  plan: planNamespace,
+  settings: settingsNamespace,
 };
 
 export default Store;

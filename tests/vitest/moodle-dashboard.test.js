@@ -9,6 +9,13 @@ import { loadMoodleSample } from '../../src/core/actions/courses.js';
 describe('Moodle 4.x Dashboard & Calendar Specification', () => {
   beforeEach(() => {
     Store.resetAll();
+    Store.db.courses = [
+      {
+        id: "c-vid-prod",
+        title: "VIDEO AND AUDIO PRODUCTION",
+        code: "BTLE TP-S-ICT10",
+      },
+    ];
     UIState.set('timelineFilter', 'all');
     UIState.set('timelineSort', 'dates');
     UIState.set('timelineSearch', '');

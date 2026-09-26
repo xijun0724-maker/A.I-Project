@@ -12,6 +12,7 @@
 
 const SESSION_KEY = "journeyai.secure.v2";
 const KEY_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const KEY_TTL_ABSOLUTE_MS = 90 * 24 * 60 * 60 * 1000;
 
 function getSessionStorage() {
   return typeof globalThis !== "undefined" ? globalThis.sessionStorage : null;
@@ -48,6 +49,7 @@ function now() {
 export function setApiKey(key, provider = "gemini") {
   const store = getStore();
   const p = provider.toLowerCase();
+  store.meta = store.meta || {};
   if (key && key.trim().length > 10) {
     store.keys[p] = {
       value: key.trim(),
@@ -56,9 +58,11 @@ export function setApiKey(key, provider = "gemini") {
       provider: p,
     };
     if (p === "gemini") store.keys.apiKey = store.keys[p];
+    delete store.meta[p];
   } else {
     delete store.keys[p];
     if (p === "gemini") delete store.keys.apiKey;
+    delete store.meta[p];
   }
   saveStore(store);
 }
@@ -68,21 +72,49 @@ export function getApiKey(provider = "gemini") {
   const p = provider.toLowerCase();
   const entry = store.keys[p] || (p === "gemini" ? store.keys.apiKey : null);
   if (!entry) return "";
-  if (now() - entry.created > KEY_TTL_MS) {
-    clearApiKey(provider);
+  const idle = now() - (entry.lastUsed || entry.created);
+  const aged = now() - entry.created;
+  if (idle > KEY_TTL_MS || aged > KEY_TTL_ABSOLUTE_MS) {
+    clearApiKey(provider, true);
     return "";
   }
   entry.lastUsed = now();
+  if (now() - entry.created > KEY_TTL_MS / 2) {
+    entry.created = now();
+  }
   saveStore(store);
   return entry.value;
 }
 
-export function clearApiKey(provider = "gemini") {
+export function clearApiKey(provider = "gemini", expired = false) {
   const store = getStore();
   const p = provider.toLowerCase();
   delete store.keys[p];
   if (p === "gemini") delete store.keys.apiKey;
+  store.meta = store.meta || {};
+  if (expired) {
+    store.meta[p] = { expired: true, at: now() };
+  } else {
+    delete store.meta[p];
+  }
   saveStore(store);
+}
+
+/** @returns {{present: boolean, expired: boolean}} — lets Settings explain the fallback */
+export function keyStatus(provider = "gemini") {
+  const store = getStore();
+  const p = provider.toLowerCase();
+  const entry = store.keys[p] || (p === "gemini" ? store.keys.apiKey : null);
+  if (entry) {
+    const idle = now() - (entry.lastUsed || entry.created);
+    const aged = now() - entry.created;
+    const expired = idle > KEY_TTL_MS || aged > KEY_TTL_ABSOLUTE_MS;
+    return { present: !expired, expired };
+  }
+  if (store.meta && store.meta[p] && store.meta[p].expired) {
+    return { present: false, expired: true };
+  }
+  return { present: false, expired: false };
 }
 
 export function hasApiKey(provider = "gemini") {

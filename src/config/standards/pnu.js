@@ -52,10 +52,12 @@ export const pnuStandard = {
       id: "schedule",
       label: "Session plan",
       patterns: [
-        /session no\.?\s*\/?\s*duration/i,
+        /session\s+no\.?/i,
         /instructional delivery design/i,
         /face-to-face activities/i,
         /online modality/i,
+        /session\s+course\s+intended/i,
+        /no\.?\/\s*duration/i,
       ],
     },
     {
@@ -105,7 +107,7 @@ export const pnuStandard = {
     },
   ],
   gradingTarget: 100,
-  minimumSessionCount: 3,
+  minimumSessionCount: 5,
   competencies: [
     {
       id: "institutional-outcomes",

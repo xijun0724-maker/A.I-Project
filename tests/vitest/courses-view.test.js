@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, beforeAll, vi } from "vitest";
 
 vi.mock("../../src/core/router.js", () => {
   const Router = {
@@ -13,12 +13,17 @@ vi.mock("../../src/core/router.js", () => {
 import { Store } from "../../src/core/store.js";
 import { UIState } from "../../src/core/state.js";
 import { courses, bindCoursesView, resetCoursesViewState } from "../../src/views/courses.js";
+import { initActionDelegation } from "../../src/app/actions-delegation.js";
 
 function click(el) {
   el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 }
 
 describe("Courses View — Moodle 4.x Layout & Functionality", () => {
+  beforeAll(() => {
+    initActionDelegation();
+  });
+
   beforeEach(() => {
     Store.resetAll();
     resetCoursesViewState();

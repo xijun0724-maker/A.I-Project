@@ -3,7 +3,9 @@
  */
 
 import { Store } from "../core/store.js";
+import { Router } from "../core/router.js";
 import { q } from "../utils/dom.js";
+import { renderRecents } from "../utils/format.js";
 
 function applyTheme(t) {
   document.documentElement.setAttribute("data-theme", t);
@@ -203,3 +205,52 @@ export function initChrome() {
   Store.on("load", renderProfile);
   Store.on("save", renderProfile);
 }
+
+/**
+ * Toggle recent chats search box in the sidebar
+ */
+export function toggleSidebarChatSearch() {
+  const recent = q("#sidebarRecent");
+  if (!recent) return;
+  let box = recent.querySelector(".sb-search-box");
+  if (box) {
+    box.remove();
+    recent.classList.remove("sb-search-active");
+    Router.scheduleRender();
+    return;
+  }
+  box = document.createElement("div");
+  box.className = "sb-search-box";
+  box.innerHTML =
+    '<input class="sb-search-input" type="text" placeholder="Search chats\u2026" aria-label="Search chats">';
+  recent.prepend(box);
+  recent.classList.add("sb-search-active");
+  const input = box.querySelector("input");
+  if (input) {
+    input.focus();
+    input.addEventListener("input", function () {
+      const query = input.value.trim();
+      if (!query) {
+        Router.scheduleRender();
+        return;
+      }
+      /* Filtered results are not "the current conversation", so no pill. */
+      renderRecents(q("#recentChatList"), Store.db.chat, {
+        query: query,
+        limit: 0,
+        activeFirst: false,
+        emptyLabel: "No matches",
+      });
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        input.value = "";
+        input.dispatchEvent(new window.Event("input", { bubbles: true }));
+        box.remove();
+        recent.classList.remove("sb-search-active");
+        Router.scheduleRender();
+      }
+    });
+  }
+}
+

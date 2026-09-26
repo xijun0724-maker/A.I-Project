@@ -432,4 +432,12 @@ describe("index entries do not duplicate document text", () => {
     /* Search results are materialised copies — plain values, readable freely. */
     expect(typeof Object.getOwnPropertyDescriptor(hits[0], "text").value).toBe("string");
   });
+
+  it("index entries always carry the metadata the prompt renders", () => {
+    seed();
+    for (const entry of Object.values(RAG.index().byId)) {
+      expect(entry.docName).toBeTruthy();
+      expect(typeof entry.idx).toBe("number");
+    }
+  });
 });

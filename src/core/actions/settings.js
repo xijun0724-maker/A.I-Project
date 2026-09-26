@@ -4,7 +4,6 @@
 
 import { Store } from "../store.js";
 import { UI } from "../state.js";
-import { Router } from "../router.js";
 import { CFG } from "../../config/constants.js";
 import { q, toast } from "../../utils/dom.js";
 import * as AI from "../../ai/index.js";
@@ -16,26 +15,26 @@ import {
 } from "../../utils/secure.js";
 
 export function applyProviderModel(provider, model) {
-  const s = Store.db.settings;
+  const s = Store.settings.get();
   provider = provider || "gemini";
+  let targetModel = s.model;
   if (provider !== (s.provider || "gemini")) {
-    s.model =
+    targetModel =
       provider === "openrouter"
         ? CFG.openrouter.model || "openrouter/free"
         : CFG.gemini.model;
   } else if (model) {
-    s.model = model;
+    targetModel = model;
   }
-  s.provider = provider;
-  if (s.provider === "gemini") {
-    s.model = AI.normalizeGeminiModel(s.model);
+  if (provider === "gemini") {
+    targetModel = AI.normalizeGeminiModel(targetModel);
   }
-  Store.saveNow();
-  return s;
+  return Store.settings.update({ provider, model: targetModel });
 }
 
 export function saveSettings() {
-  const s = Store.db.settings;
+  const s = Store.settings.get();
+  const patch = {};
   const keyInput = q("#setKey");
   const typedKey = keyInput && keyInput.value.trim();
   const providerSelect = q("#setProvider");
@@ -44,55 +43,56 @@ export function saveSettings() {
   if (providerSelect) {
     applyProviderModel(providerSelect.value || "gemini", modelSelect ? modelSelect.value : null);
   } else if (modelSelect) {
-    s.model = modelSelect.value;
+    patch.model = modelSelect.value;
   }
 
-  if (s.provider === "gemini") {
-    s.model = AI.normalizeGeminiModel(s.model);
-  }
+  const currentSettings = Store.settings.get();
+  const provider = currentSettings.provider || "gemini";
 
-  const provider = s.provider || "gemini";
+  if (currentSettings.provider === "gemini" && patch.model) {
+    patch.model = AI.normalizeGeminiModel(patch.model);
+  }
 
   if (typedKey) {
-    s.apiKey = typedKey;
+    patch.apiKey = typedKey;
     setApiKey(typedKey, provider);
   } else {
     const savedKey = getApiKey(provider);
     if (savedKey) {
-      s.apiKey = savedKey;
+      patch.apiKey = savedKey;
     } else {
-      s.apiKey = "";
+      patch.apiKey = "";
       clearApiKey(provider);
     }
   }
-  hydrateKey(s);
 
   /* Only fields that are actually on screen are written, so a save fired
      from a screen without these inputs cannot throw on a null lookup. */
   const aiToggle = q("#setAiEnabled");
-  if (aiToggle) s.aiEnabled = aiToggle.checked;
+  if (aiToggle) patch.aiEnabled = aiToggle.checked;
   const hybridInput = q("#setHybridRAG");
-  if (hybridInput) s.hybridRAG = hybridInput.checked;
+  if (hybridInput) patch.hybridRAG = hybridInput.checked;
   const standardSelect = q("#setSyllabusStandard");
-  if (standardSelect) s.syllabusStandard = standardSelect.value;
+  if (standardSelect) patch.syllabusStandard = standardSelect.value;
   const weekdayInput = q("#setWeekday");
-  if (weekdayInput) s.studyWeekday = parseFloat(weekdayInput.value) || 2;
+  if (weekdayInput) patch.studyWeekday = parseFloat(weekdayInput.value) || 2;
   const weekendInput = q("#setWeekend");
-  if (weekendInput) s.studyWeekend = parseFloat(weekendInput.value) || 4;
+  if (weekendInput) patch.studyWeekend = parseFloat(weekendInput.value) || 4;
   const weeksInput = q("#setWeeks");
-  if (weeksInput) s.plannerWeeks = parseInt(weeksInput.value, 10) || 6;
+  if (weeksInput) patch.plannerWeeks = parseInt(weeksInput.value, 10) || 6;
   const defaultViewInput = q("#setDefaultView");
-  if (defaultViewInput) s.defaultView = defaultViewInput.value || "dashboard";
+  if (defaultViewInput) patch.defaultView = defaultViewInput.value || "dashboard";
   const termStartInput = q("#setTermStart");
-  if (termStartInput) s.termStart = termStartInput.value || s.termStart;
+  if (termStartInput) patch.termStart = termStartInput.value || s.termStart;
   const termEndInput = q("#setTermEnd");
-  if (termEndInput) s.termEnd = termEndInput.value || s.termEnd;
+  if (termEndInput) patch.termEnd = termEndInput.value || s.termEnd;
   const academicYearInput = q("#setAcademicYear");
-  if (academicYearInput) s.academicYear = academicYearInput.value || s.academicYear;
+  if (academicYearInput) patch.academicYear = academicYearInput.value || s.academicYear;
   const termNameInput = q("#setTermName");
-  if (termNameInput) s.termName = termNameInput.value || s.termName;
+  if (termNameInput) patch.termName = termNameInput.value || s.termName;
 
-  Store.saveNow();
+  const updated = Store.settings.update(patch);
+  hydrateKey(updated);
   UI.toastSaved("Settings saved.");
 }
 
@@ -121,10 +121,8 @@ export async function testAI() {
 }
 
 export function clearApiKeyFn() {
-  const provider = Store.db.settings.provider || "gemini";
-  Store.db.settings.apiKey = "";
+  const provider = Store.settings.get().provider || "gemini";
   clearApiKey(provider);
-  Store.saveNow();
-  Router.scheduleRender();
+  Store.settings.update({ apiKey: "" });
   toast("API key cleared.", "ok");
 }

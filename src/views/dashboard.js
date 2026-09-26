@@ -511,6 +511,43 @@ function renderCourseProgress() {
 
 /** Main Dashboard view function integrating executive context, KPIs, focus and schedule */
 export function dashboard() {
+  const allCourses = Store.db.courses || [];
+  const allEvents = Store.db.events || [];
+
+  // 1. Executive Page Head
+  const s = Store.db.settings || {};
+  const activeTerm = esc(s.termName || "1st Term");
+  const activeYear = s.academicYear ? esc(s.academicYear) : "2026–2027";
+  const headActions =
+    '<button type="button" class="btn sm" data-act="academic-calendar-modal">+ Academic calendar</button>' +
+    '<button type="button" class="btn sm primary" data-act="go-import">Import syllabus</button>';
+
+  // When no courses and no events exist (fresh state or after "Reset everything"),
+  // render a clean Welcome / Empty state card, hiding the KPI grids and widgets.
+  if (!allCourses.length && !allEvents.length) {
+    const emptyHead = pageHead(
+      "Dashboard",
+      `${activeYear} &middot; ${activeTerm}`,
+      headActions,
+    );
+    return (
+      '<div class="view-padded">' +
+      emptyHead +
+      '<div class="card" style="padding: 48px 24px; text-align: center; margin-top: 16px;">' +
+      empty(
+        "",
+        "Your academic dashboard is blank",
+        "No courses or tasks have been loaded yet. Import a course syllabus or add a course manually to start tracking your deadlines, schedule, and academic progress.",
+        '<div style="display: flex; gap: 12px; justify-content: center; margin-top: 20px;">' +
+          '<button type="button" class="btn primary" data-act="go-import">Import syllabus</button>' +
+          '<button type="button" class="btn" data-act="new-course">Add course</button>' +
+        '</div>',
+      ) +
+      '</div>' +
+      '</div>'
+    );
+  }
+
   const k = Dashboard.kpis();
   const ready = Dashboard.readiness();
 
@@ -543,12 +580,10 @@ export function dashboard() {
     return UI.inScope(e) && Tasks.isOpen(e) && Tasks.isOverdue(e);
   });
 
-  // 1. Executive Page Head
   let h = pageHead(
     "Dashboard",
     "",
-    '<button type="button" class="btn sm" data-act="academic-calendar-modal">+ Academic calendar</button>' +
-      '<button type="button" class="btn sm primary" data-act="go-import">Import syllabus</button>',
+    headActions,
   );
 
   // 2. Horizon Band (Status Strip with term progress, zero workload badges)

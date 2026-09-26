@@ -64,6 +64,10 @@ export function sessionOf(line) {
   return number;
 }
 
+/** PNU institutional header stamps repeated on every TEDPATH PDF page. */
+const PNU_STAMP_RE =
+  /^(?:Reference\s+No\.?\s+PNU|Issue\s+No\.?\s*\d|Rev(?:ision)?\.?\s+No\.?\s*\d|Taft\s+Ave\.|Trunkline:\s*\+|(?:CMI\s+TEACHER\s+EDUCATION\s+PATHWAYS|UCM\s+OBE\s+COURSE)\s+SYLLABUS|Page\s+\d+\s*\/|\(All\s+documents\s+without|DC\s+No\.\s+CC\d)/i;
+
 export function isNoise(line) {
   const s = String(line || "").trim();
   if (!s || s.length < 3) return true;
@@ -71,6 +75,7 @@ export function isNoise(line) {
   if (/^(page|pg)\.?\s*\d+/i.test(s)) return true;
   if (/^(table of contents|contents|syllabus|course syllabus)$/i.test(s))
     return true;
+  if (PNU_STAMP_RE.test(s)) return true;
   return false;
 }
 
@@ -117,6 +122,10 @@ export function stripDates(s) {
 }
 
 export function weightOf(line) {
+  // PNU grade-point-scale rows look like "98 - 100   1.00   Excellent" —
+  // these are not assessment weights; skip them.
+  if (/\b\d{2,3}\s*[-–]\s*\d{2,3}(?:\.\d+)?\s+\d+\.\d{2}\b/.test(line)) return null;
+  if (/\b(?:grade\s+in\s+percent|grade\s+point\s+scale|adjectival\s+description)\b/i.test(line)) return null;
   let m = /(\d{1,3}(?:\.\d+)?)\s*%/.exec(line);
   if (m) return { weight: parseFloat(m[1]), unit: "%" };
   m = /\b(\d{1,4})\s*(?:points|pts|marks)\b/i.exec(line);

@@ -7,6 +7,8 @@ import {
   status,
   usable,
   normalizeGeminiModel,
+  checkTokenBudget,
+  messageChars,
 } from "../../src/ai/client.js";
 import { CFG } from "../../src/config/constants.js";
 
@@ -195,5 +197,78 @@ describe("chat", () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+
+  it("drops middle history turns to fit within token budget", () => {
+    const system = { role: "system", content: "system prompt" };
+    const middle1 = { role: "user", content: "m".repeat(100) };
+    const middle2 = { role: "assistant", content: "a".repeat(100) };
+    const tail = { role: "user", content: "latest" };
+    const b = checkTokenBudget([system, middle1, middle2, tail], { maxChars: 150 });
+    expect(b.truncated).toBe(true);
+    expect(b.dropped).toBeGreaterThan(0);
+    expect(messageChars(b.messages)).toBeLessThanOrEqual(150);
+    expect(b.messages[0]).toEqual(system);
+    expect(b.messages[b.messages.length - 1]).toEqual(tail);
+  });
+
+  it("early-refuses when system and user messages together exceed the character ceiling", async () => {
+    Store.db.settings.aiEnabled = true;
+    setApiKey("test-key-0123456789abcdef");
+    const bigSystem = { role: "system", content: "s".repeat(15000) };
+    const bigUser = { role: "user", content: "u".repeat(10000) };
+    const r = await chat([bigSystem, bigUser], { maxChars: 20000 });
+    expect(r.ok).toBe(false);
+    expect(r.off).toBe(true);
+    expect(r.error).toContain("That question is too long for one request");
+  });
+
+  it("early-refuses when a single message exceeds the character ceiling", async () => {
+    Store.db.settings.aiEnabled = true;
+    setApiKey("test-key-0123456789abcdef");
+    const huge = "a".repeat(25000);
+    const r = await chat([{ role: "user", content: huge }]);
+    expect(r.ok).toBe(false);
+    expect(r.off).toBe(true);
+    expect(r.error).toContain("That question is too long for one request");
+  });
+
+  it("bounds retries by deadline and aborts once deadline expires", async () => {
+    Store.db.settings.aiEnabled = true;
+    setApiKey("test-key-0123456789abcdef");
+    const original = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = () => {
+      calls += 1;
+      const err = new Error("timeout");
+      err.name = "AbortError";
+      return Promise.reject(err);
+    };
+    try {
+      const start = Date.now();
+      const r = await chat([{ role: "user", content: "hi" }], {
+        timeout: 60,
+        deadline: Date.now() + 60,
+        retries: 3,
+        retryDelay: 1,
+      });
+      expect(calls).toBe(1);
+      expect(r.ok).toBe(false);
+      expect(Date.now() - start).toBeLessThan(1000);
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it("reports expired key in status() when TTL has lapsed", () => {
+    Store.db.settings.aiEnabled = true;
+    setApiKey("test-key-0123456789abcdef");
+    const raw = JSON.parse(sessionStorage.getItem("journeyai.secure.v2"));
+    raw.keys.gemini.lastUsed = Date.now() - 35 * 24 * 60 * 60 * 1000;
+    sessionStorage.setItem("journeyai.secure.v2", JSON.stringify(raw));
+
+    const s = status();
+    expect(s.on).toBe(false);
+    expect(s.why).toContain("expired after 30 days");
   });
 });

@@ -15,7 +15,7 @@ const sessionStorageMock = vi.hoisted(() => {
 
 vi.stubGlobal('sessionStorage', sessionStorageMock);
 
-import { setApiKey, getApiKey, clearApiKey, hasApiKey, hydrateKey, stripKey } from '../../src/utils/secure.js';
+import { setApiKey, getApiKey, clearApiKey, hasApiKey, keyStatus, hydrateKey, stripKey } from '../../src/utils/secure.js';
 
 describe('secure.js', () => {
   beforeEach(() => {
@@ -165,6 +165,57 @@ describe('secure.js', () => {
       sessionStorage.setItem(STORAGE_KEY, '{{bad json');
       expect(getApiKey()).toBe('');
       expect(hasApiKey()).toBe(false);
+    });
+  });
+
+  describe('sliding TTL and keyStatus', () => {
+    it('reports present: false, expired: false when no key set', () => {
+      expect(keyStatus()).toEqual({ present: false, expired: false });
+    });
+
+    it('reports present: true, expired: false when valid key set', () => {
+      setApiKey('sk-valid-key-1234');
+      expect(keyStatus()).toEqual({ present: true, expired: false });
+    });
+
+    it('expires after 30 days idle and reports expired', () => {
+      setApiKey('sk-valid-key-1234');
+      const raw = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+      const THIRTY_ONE_DAYS = 31 * 24 * 60 * 60 * 1000;
+      raw.keys.gemini.lastUsed = Date.now() - THIRTY_ONE_DAYS;
+      raw.keys.gemini.created = Date.now() - THIRTY_ONE_DAYS;
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+
+      expect(keyStatus()).toEqual({ present: false, expired: true });
+      expect(getApiKey()).toBe('');
+      expect(keyStatus()).toEqual({ present: false, expired: true });
+    });
+
+    it('slides window on active use before 30 days', () => {
+      setApiKey('sk-valid-key-1234');
+      const raw = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+      const TWENTY_DAYS = 20 * 24 * 60 * 60 * 1000;
+      raw.keys.gemini.created = Date.now() - TWENTY_DAYS;
+      raw.keys.gemini.lastUsed = Date.now() - TWENTY_DAYS;
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+
+      // Accessing key should slide created timestamp
+      expect(getApiKey()).toBe('sk-valid-key-1234');
+      const updated = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+      expect(Date.now() - updated.keys.gemini.created).toBeLessThan(1000);
+      expect(keyStatus()).toEqual({ present: true, expired: false });
+    });
+
+    it('expires after 90 days absolute even if recently used', () => {
+      setApiKey('sk-valid-key-1234');
+      const raw = JSON.parse(sessionStorage.getItem(STORAGE_KEY));
+      const NINETY_ONE_DAYS = 91 * 24 * 60 * 60 * 1000;
+      raw.keys.gemini.created = Date.now() - NINETY_ONE_DAYS;
+      raw.keys.gemini.lastUsed = Date.now() - 1000; // active 1s ago
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(raw));
+
+      expect(keyStatus()).toEqual({ present: false, expired: true });
+      expect(getApiKey()).toBe('');
     });
   });
 });

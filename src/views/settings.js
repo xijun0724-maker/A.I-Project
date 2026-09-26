@@ -5,6 +5,7 @@ import { Hybrid } from "../domain/rag-embeddings.js";
 import { Standards } from "../config/standards/index.js";
 import { esc, fmtBytes } from "../utils/helpers.js";
 import { isLoaded } from "../utils/cdn.js";
+import { keyStatus } from "../utils/secure.js";
 import { statBox, pageHead, bar } from "./shared.js";
 
 export function settings() {
@@ -65,11 +66,23 @@ export function settings() {
     h += "</select></label>";
   }
 
+  const ks = keyStatus(provider);
+  if (ks && ks.expired) {
+    h +=
+      '<div class="notice warn mb"><div>Your saved key expired after 30 days without use — paste it again to keep AI answers on.</div></div>';
+  }
+
+  const keyBadge = s.apiKey
+    ? ' <span class="badge ok">stored in this browser</span>'
+    : ks && ks.expired
+      ? ' <span class="badge warn">expired</span>'
+      : "";
+
   h +=
     '<label class="fld"><span>' +
     provCfg.label +
     " API key" +
-    (s.apiKey ? ' <span class="badge ok">stored in this browser</span>' : "") +
+    keyBadge +
     "</span>" +
     '<input id="setKey" type="password" value="" autocomplete="off" spellcheck="false" placeholder="' +
     (s.apiKey

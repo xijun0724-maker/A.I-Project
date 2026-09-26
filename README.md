@@ -25,11 +25,9 @@ Journey A.I helps students manage coursework, deadlines, and study schedules wit
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/YOUR_USERNAME/journey-ai.git
-   cd journey-ai
+   git clone https://github.com/xijun0724-maker/A.I-Project.git
+   cd A.I-Project
    ```
-
-   > Replace `YOUR_USERNAME` with your GitHub username.
 
 2. **Install dependencies:**
 
@@ -88,17 +86,17 @@ Journey A.I is a single-page web application with:
 ### Project Structure
 
 ```
-journey-ai/
+A.I-Project/
 ├── index.html              # Entry HTML (loads the ES module bundle)
 ├── sw.js                   # Service Worker (caches CDN libs + fonts)
 ├── vite.config.js          # Vite dev server + test config
 ├── src/                    # Application source
 │   ├── main.js             # ES module entry point — wires views, router, actions, boot
-│   ├── config/             # Constants, provider definitions
-│   ├── core/               # Router, state, localStorage store
-│   │   ├── actions/        # Action dispatch + domain modules (courses, tasks, exports, settings, import, planner)
+│   ├── config/             # Constants, provider definitions, syllabus standards
+│   ├── core/               # Router, state, localStorage store, IndexedDB mirror
+│   │   ├── actions/        # Action dispatch + domain modules (courses, tasks, exports, settings, import, planner, term)
 │   │   └── ...
-│   ├── utils/              # Helpers, dates, DOM, markdown
+│   ├── utils/              # Helpers, dates, DOM, markdown, secure storage
 │   ├── domain/             # Business logic — tasks, NLP, RAG, planner, coach, dashboard, pipeline
 │   ├── ai/                 # LLM provider layer (Gemini + OpenRouter, no SDK)
 │   └── views/              # Screen renderers
@@ -107,6 +105,7 @@ journey-ai/
 ├── tests/                  # Vitest unit + integration tests
 │   └── vitest/             # Unit and integration tests
 ├── docs/                   # Documentation assets
+├── .github/workflows/      # CI: lint, test, build, deploy to GitHub Pages
 ├── LICENSE                 # MIT License
 └── CONTRIBUTING.md         # Contribution guide
 ```
